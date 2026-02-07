@@ -1,0 +1,26 @@
+{
+  "name": "distributed-claude-agents",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first distributed multi-agent system for collaborative task execution",
+  "workspaces": [
+    "apps/control-ui",
+    "services/orchestrator",
+    "services/agents",
+    "services/memory",
+    "services/tools"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "dev": "docker compose up --build",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write '**/*.{ts,tsx,json,css}'"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "eslint": "^8.56.0",
+    "prettier": "^3.2.0"
+  }
+}

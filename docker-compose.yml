@@ -1,0 +1,93 @@
+services:
+  # PostgreSQL - Shared memory store
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dca
+      POSTGRES_USER: dca
+      POSTGRES_PASSWORD: dca_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./services/memory/src/schema/tables.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dca"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis - Event bus / pub-sub
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Orchestrator API
+  orchestrator:
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: "3001"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: dca
+      DB_USER: dca
+      DB_PASSWORD: dca_secret
+      REDIS_URL: redis://redis:6379
+      WORKSPACE_ROOT: /workspace
+    volumes:
+      - workspace:/workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Agent Workers
+  agents:
+    build:
+      context: .
+      dockerfile: services/agents/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: dca
+      DB_USER: dca
+      DB_PASSWORD: dca_secret
+      REDIS_URL: redis://redis:6379
+      AGENT_ROLES: all
+      WORKSPACE_ROOT: /workspace
+    volumes:
+      - workspace:/workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      orchestrator:
+        condition: service_started
+
+  # Control UI
+  control-ui:
+    build:
+      context: .
+      dockerfile: apps/control-ui/Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - orchestrator
+
+volumes:
+  pgdata:
+    name: dca-pgdata
+  workspace:
+    name: dca-workspace

@@ -1,3 +1,7 @@
+# Distributed Claude Agents (Node.js)
+node_modules/
+.dca-backups/
+
 __pycache__/
 .venv
 test_weights.npz
