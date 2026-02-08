@@ -1,0 +1,25 @@
+{
+  "projects_root": "D:\\ProjectsHome",
+  "port": 8090,
+  "github": {
+    "enabled": false,
+    "username": "lance-fisher",
+    "token_env_var": "GITHUB_TOKEN",
+    "auto_sync": true,
+    "sync_interval_minutes": 30
+  },
+  "bot": {
+    "provider": "ollama",
+    "model": "qwen2.5-coder:14b",
+    "base_url": "http://localhost:11434"
+  },
+  "claude_code": {
+    "enabled": true,
+    "auto_register": true
+  },
+  "scan": {
+    "max_depth": 2,
+    "ignore_dirs": ["node_modules", ".git", "__pycache__", "dist", "build", ".venv"],
+    "config_files": ["project-hub.json", ".project.json"]
+  }
+}
