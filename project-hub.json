@@ -1,0 +1,25 @@
+{
+  "name": "Distributed Claude Agents",
+  "description": "Local-first multi-agent system where 7 specialized AI bots collaborate to decompose, plan, execute, and verify user tasks concurrently. React control UI, Express orchestrator, PostgreSQL state, Redis pub/sub, Docker Compose deployment.",
+  "status": "active",
+  "platform": "PC",
+  "category": "AI",
+  "tags": ["typescript", "react", "docker", "multi-agent", "local-first"],
+  "path": "D:\\ProjectsHome\\distributed-claude-agents",
+  "repo": "lance-fisher/exo",
+  "branch": "claude/distributed-claude-agents-oR46c",
+  "ports": {
+    "ui": 3000,
+    "api": 3001,
+    "db": 5432,
+    "redis": 6379
+  },
+  "commands": {
+    "start": "make up",
+    "stop": "make down",
+    "logs": "make logs",
+    "test": "make test"
+  },
+  "created": "2026-02-08",
+  "updated": "2026-02-08"
+}
