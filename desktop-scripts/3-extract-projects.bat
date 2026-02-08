@@ -256,7 +256,7 @@ echo    - scls
 echo.
 
 REM Mark step 3 complete
-echo step3=complete>> "%USERPROFILE%\Desktop\.cleanup-progress.txt"
+echo step3=complete>> "D:\ProjectsHome\github-cleanup\.cleanup-progress.txt"
 
 echo  Step 3 complete!
 echo  Now run: 4-doctor-and-cleanup.bat

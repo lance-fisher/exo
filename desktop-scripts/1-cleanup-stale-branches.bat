@@ -76,7 +76,7 @@ cd /d "%USERPROFILE%"
 rmdir /s /q "%REPO_DIR%" 2>nul
 
 REM Mark step 1 complete
-echo step1=complete> "%USERPROFILE%\Desktop\.cleanup-progress.txt"
+echo step1=complete> "D:\ProjectsHome\github-cleanup\.cleanup-progress.txt"
 
 echo.
 echo  Step 1 complete!

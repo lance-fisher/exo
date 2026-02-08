@@ -49,9 +49,9 @@ Numbered self-deleting scripts the user runs on Windows Desktop:
 
 ### On Windows machine (requires user to run):
 1. Navigate to `desktop-scripts/` directory in the repo
-2. Double-click `deploy-to-desktop.bat` to copy numbered scripts to Desktop
-3. Run scripts 1 through 4 in order by double-clicking each
-4. Script 4 runs health checks and cleans up all scripts
+2. Double-click `deploy-to-desktop.bat` to copy scripts to `D:\ProjectsHome\github-cleanup\`
+3. Open `D:\ProjectsHome\github-cleanup\` and run scripts 1 through 4 in order
+4. Script 4 runs health checks, saves report to `D:\ProjectsHome\project-health-report.txt`, then deletes the github-cleanup folder
 5. Run `setup-windows.bat` for ProjectHub and desktop shortcuts
 
 ### Projects to extract from exo branches into own repos:

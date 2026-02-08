@@ -31,7 +31,7 @@ if not errorlevel 1 (
         echo.
 
         REM Mark step 2 complete
-        echo step2=complete>> "%USERPROFILE%\Desktop\.cleanup-progress.txt"
+        echo step2=complete>> "D:\ProjectsHome\github-cleanup\.cleanup-progress.txt"
 
         echo  Press any key to close...
         pause >nul
@@ -94,7 +94,7 @@ echo  Successfully logged in to GitHub!
 echo.
 
 REM Mark step 2 complete
-echo step2=complete>> "%USERPROFILE%\Desktop\.cleanup-progress.txt"
+echo step2=complete>> "D:\ProjectsHome\github-cleanup\.cleanup-progress.txt"
 
 echo  Step 2 complete!
 echo  Now run: 3-extract-projects.bat
