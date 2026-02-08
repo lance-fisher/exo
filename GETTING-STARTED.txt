@@ -1,0 +1,60 @@
+=============================================
+  DISTRIBUTED CLAUDE AGENTS - GETTING STARTED
+=============================================
+
+WHAT THIS IS
+  A local-first system where 7 AI agents work together
+  to break down, plan, execute, and verify your tasks.
+
+PREREQUISITES
+  - Docker Desktop (install from https://docker.com/products/docker-desktop)
+  - Git
+
+FIRST-TIME SETUP (one time only)
+  1. Open a terminal
+  2. Run these three commands:
+
+     cd ~/exo
+     cp .env.example .env
+     make up
+
+  3. Wait about 30 seconds for services to start
+  4. Open http://localhost:3000 in your browser
+  5. Type a task and click "Submit Task"
+
+DAILY USE
+  Start:   cd ~/exo && make up
+  Stop:    cd ~/exo && make down
+  Logs:    cd ~/exo && make logs
+  Status:  cd ~/exo && make status
+  Demo:    cd ~/exo && make demo
+
+  Or double-click the desktop icon.
+
+DESKTOP ICON SETUP
+  Run this once to install the desktop launcher:
+
+     cp ~/exo/distributed-claude-agents.desktop ~/Desktop/
+     chmod +x ~/Desktop/distributed-claude-agents.desktop
+
+  Then double-click it to start the system.
+
+PORTS USED
+  3000  - Control UI (open this in your browser)
+  3001  - Orchestrator API
+  5432  - PostgreSQL (internal)
+  6379  - Redis (internal)
+
+STOPPING EVERYTHING
+     cd ~/exo && make down
+
+  To also clear all data:
+     cd ~/exo && make clean
+
+TROUBLESHOOTING
+  - "Cannot connect to Docker": Make sure Docker Desktop is running
+  - "Port already in use": Stop other services on ports 3000/3001
+  - UI shows "Disconnected": Wait a few seconds, it auto-reconnects
+  - Run "make logs" to see what each service is doing
+
+=============================================

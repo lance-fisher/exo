@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Distributed Claude Agents
+Comment=Start the multi-agent task execution system
+Exec=bash -c "cd $HOME/exo && bash distributed-claude-agents.sh"
+Icon=utilities-terminal
+Terminal=true
+Categories=Development;
+StartupNotify=true
