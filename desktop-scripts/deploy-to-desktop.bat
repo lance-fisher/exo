@@ -80,20 +80,23 @@ if not errorlevel 1 (
     echo    [OK] README.txt
 )
 
+REM Also put the one-click launcher on Desktop
+copy /y "%SCRIPT_DIR%GitHub-Cleanup-START-HERE.bat" "%USERPROFILE%\Desktop\" >nul
+if not errorlevel 1 (
+    echo    [OK] GitHub-Cleanup-START-HERE.bat -> Desktop
+)
+
 echo.
 echo  ========================================
 echo   Scripts deployed!
 echo  ========================================
 echo.
-echo  Open D:\ProjectsHome\github-cleanup\
-echo  and run them in order:
-echo    1. Double-click 1-cleanup-stale-branches.bat
-echo    2. Double-click 2-install-github-cli.bat
-echo    3. Double-click 3-extract-projects.bat
-echo    4. Double-click 4-doctor-and-cleanup.bat
+echo  A launcher has been placed on your Desktop:
+echo    GitHub-Cleanup-START-HERE.bat
 echo.
-echo  Script 4 will clean up the folder and
-echo  leave only the health report on Desktop.
+echo  Double-click it to start the cleanup.
+echo  It opens the scripts folder and then
+echo  removes itself from your Desktop.
 echo.
 echo  Press any key to close...
 pause >nul
