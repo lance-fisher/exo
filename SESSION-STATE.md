@@ -35,13 +35,24 @@ Files:
 - extract-projects.bat -- Extracts 6 misplaced projects into their own GitHub repos
 - github-reorg-guide.md -- Full documentation
 
+### 5. Desktop Cleanup Scripts (NEW)
+Numbered self-deleting scripts the user runs on Windows Desktop:
+- desktop-scripts/deploy-to-desktop.bat -- Copies scripts 1-4 to Desktop
+- desktop-scripts/1-cleanup-stale-branches.bat -- Deletes 6 stale branches
+- desktop-scripts/2-install-github-cli.bat -- Installs gh CLI + authenticates
+- desktop-scripts/3-extract-projects.bat -- Creates 6 new repos from exo branches
+- desktop-scripts/4-doctor-and-cleanup.bat -- Health check + self-deletes all scripts
+- desktop-scripts/doctor-coordination.json -- Handoff file for doctor session
+- desktop-scripts/README.txt -- Plain-text instructions
+
 ## WHAT STILL NEEDS TO BE DONE
 
 ### On Windows machine (requires user to run):
-1. Run `github-cleanup.bat` to delete stale branches
-2. Install GitHub CLI: `winget install GitHub.cli` then `gh auth login`
-3. Run `extract-projects.bat` to create 6 new repos from misplaced branches
-4. Run `setup-windows.bat` to set up desktop shortcuts and ProjectHub
+1. Navigate to `desktop-scripts/` directory in the repo
+2. Double-click `deploy-to-desktop.bat` to copy numbered scripts to Desktop
+3. Run scripts 1 through 4 in order by double-clicking each
+4. Script 4 runs health checks and cleans up all scripts
+5. Run `setup-windows.bat` for ProjectHub and desktop shortcuts
 
 ### Projects to extract from exo branches into own repos:
 - claude/medspa-mobile-app-AKyo6 -> lance-fisher/harmony-medspa

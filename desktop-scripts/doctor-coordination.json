@@ -1,0 +1,72 @@
+{
+  "purpose": "Coordination file between GitHub cleanup session and project doctor session",
+  "instructions_for_doctor": "This file was created by the GitHub cleanup session. After the user runs the 4 numbered scripts on their Desktop, the doctor session should verify everything worked correctly.",
+
+  "cleanup_scripts": {
+    "location": "Desktop (copied by deploy-to-desktop.bat)",
+    "scripts": [
+      {
+        "name": "1-cleanup-stale-branches.bat",
+        "action": "Deletes 6 stale/merged branches from lance-fisher/exo",
+        "branches_deleted": [
+          "astra", "cline", "main", "update/pip", "copilot/fix",
+          "claude/start-new-project-yELXE"
+        ]
+      },
+      {
+        "name": "2-install-github-cli.bat",
+        "action": "Installs GitHub CLI (gh) and authenticates"
+      },
+      {
+        "name": "3-extract-projects.bat",
+        "action": "Creates 6 new repos from exo branches, then deletes those branches",
+        "repos_created": [
+          {"repo": "lance-fisher/harmony-medspa", "from_branch": "claude/medspa-mobile-app-AKyo6"},
+          {"repo": "lance-fisher/trading-bot", "from_branch": "claude/start-new-project-06bsC"},
+          {"repo": "lance-fisher/mission-control", "from_branch": "claude/review-images-new-project-d1qDw"},
+          {"repo": "lance-fisher/frontier-bastion", "from_branch": "claude/rts-game-prototype-FmTk4"},
+          {"repo": "lance-fisher/project-dashboard", "from_branch": "claude/project-dashboard-hub-O2Sx0"},
+          {"repo": "lance-fisher/scls", "from_branch": "claude/init-scls-uOi0s"}
+        ]
+      },
+      {
+        "name": "4-doctor-and-cleanup.bat",
+        "action": "Runs health checks, writes report, deletes all scripts including itself",
+        "outputs": {
+          "report": "Desktop/project-health-report.txt",
+          "machine_readable": "Desktop/.doctor-results.json"
+        }
+      }
+    ]
+  },
+
+  "expected_final_state": {
+    "exo_repo_branches": [
+      "master (upstream default)",
+      "claude/distributed-claude-agents-oR46c (our active project)"
+    ],
+    "new_repos": [
+      "lance-fisher/harmony-medspa",
+      "lance-fisher/trading-bot",
+      "lance-fisher/mission-control",
+      "lance-fisher/frontier-bastion",
+      "lance-fisher/project-dashboard",
+      "lance-fisher/scls"
+    ],
+    "local_files": {
+      "D:\\ProjectsHome\\project-hub\\server.py": "ProjectHub dashboard server",
+      "D:\\ProjectsHome\\project-hub\\config.json": "Hub configuration",
+      "D:\\ProjectsHome\\distributed-claude-agents\\": "Main project (cloned from exo branch)"
+    }
+  },
+
+  "doctor_checklist": [
+    "Verify exo repo only has master + claude/distributed-claude-agents-oR46c branches",
+    "Verify all 6 new repos exist and have content on main branch",
+    "Verify local ProjectHub server starts: python server.py",
+    "Verify project-hub.json files are present in project directories",
+    "Verify Docker Compose config is valid in distributed-claude-agents",
+    "Check Desktop for project-health-report.txt after user runs scripts",
+    "Check Desktop for .doctor-results.json for machine-readable results"
+  ]
+}
