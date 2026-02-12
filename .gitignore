@@ -3,6 +3,9 @@ __pycache__/
 test_weights.npz
 .exo_used_ports
 .exo_node_id
+
+# Claude Code session handover (generated per-session, not tracked)
+.claude/handover.md
 .idea
 
 # Byte-compiled / optimized / DLL files

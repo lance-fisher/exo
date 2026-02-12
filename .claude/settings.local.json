@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "type": "command",
+        "command": "bash .claude/hooks/pre-compact-handover.sh"
+      }
+    ]
+  }
+}
