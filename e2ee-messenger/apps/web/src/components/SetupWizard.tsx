@@ -1,9 +1,16 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   Shield, Key, Fingerprint, CheckCircle, Copy, AlertTriangle, ChevronRight, Upload
 } from 'lucide-react';
+import {
+  isWebAuthnSupported,
+  isPlatformAuthenticatorAvailable,
+  registerPasskey,
+  type WebAuthnCredential,
+} from '@/lib/webauthn';
+import { publishIdentity } from '@/lib/api';
 
 interface SetupWizardProps {
   onComplete: (fingerprint: string, deviceId: string) => void;
@@ -21,6 +28,11 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [recoveryCopied, setRecoveryCopied] = useState(false);
+
+  // Hold crypto objects across steps (not in React state to avoid serialization)
+  const pgpIdentityRef = useRef<any>(null);
+  const keyBundleRef = useRef<any>(null);
+  const credentialRef = useRef<WebAuthnCredential | null>(null);
 
   const steps: { key: Step; label: string }[] = [
     { key: 'import-key', label: 'Import PGP Key' },
@@ -44,16 +56,18 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
         throw new Error('Invalid PGP key format. Please paste an ASCII-armored private key.');
       }
 
-      // In production: parse PGP key with openpgp.js, extract fingerprint
-      // For MVP demo, extract a mock fingerprint from the key
-      const mockFingerprint = Array.from(crypto.getRandomValues(new Uint8Array(20)))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
+      // Dynamically import crypto to keep bundle small and avoid SSR issues
+      const { PGPIdentity, initCrypto } = await import('@e2ee/crypto');
+      await initCrypto();
 
-      setFingerprint(mockFingerprint);
+      const pgpId = new PGPIdentity();
+      const info = await pgpId.importPrivateKey(pgpKey.trim(), passphrase || undefined);
+
+      pgpIdentityRef.current = pgpId;
+      setFingerprint(info.fingerprint);
       setStep('create-passkey');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Failed to import PGP key');
     } finally {
       setLoading(false);
     }
@@ -64,45 +78,120 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
     setLoading(true);
 
     try {
-      // In production: call registerPasskey() from webauthn.ts
-      // For MVP, simulate passkey creation
-      await new Promise(r => setTimeout(r, 800));
+      // Check WebAuthn availability
+      const webauthnOk = isWebAuthnSupported() && await isPlatformAuthenticatorAvailable();
+
+      if (webauthnOk) {
+        // Register a real passkey with platform authenticator
+        const { credential } = await registerPasskey(fingerprint, `E2EE User ${fingerprint.slice(0, 8)}`);
+        credentialRef.current = credential;
+      } else {
+        // Fallback: generate a synthetic credential ID for environments without WebAuthn
+        // (e.g., headless testing, non-HTTPS localhost)
+        const syntheticId = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+          .map(b => b.toString(16).padStart(2, '0')).join('');
+        credentialRef.current = { credentialId: syntheticId, publicKey: '' };
+      }
+
       setStep('generate-identity');
     } catch (err: any) {
-      setError(err.message || 'Failed to create passkey');
+      setError(err.message || 'Failed to create passkey. Your browser may not support WebAuthn.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fingerprint]);
 
   const handleGenerateIdentity = useCallback(async () => {
     setError(null);
     setLoading(true);
 
     try {
-      // In production: generate Ed25519 identity key, sign attestation, publish to rendezvous
-      // For MVP, simulate
-      await new Promise(r => setTimeout(r, 600));
+      const { KeyBundle, LocalVault, generateRecoveryCode, initCrypto } = await import('@e2ee/crypto');
+      const s = await initCrypto();
 
-      // Generate recovery code
-      const bytes = crypto.getRandomValues(new Uint8Array(32));
-      const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-      const formatted = hex.match(/.{4}/g)!.join('-');
-      setRecoveryCode(formatted);
+      const pgpId = pgpIdentityRef.current;
+      if (!pgpId) throw new Error('PGP identity not loaded');
+      if (!credentialRef.current) throw new Error('Passkey not created');
 
-      // Store identity info
-      localStorage.setItem('e2ee_identity', JSON.stringify({
-        fingerprint,
+      // 1. Generate messaging identity key pair (Ed25519)
+      const bundle = new KeyBundle();
+      const identityPub = await bundle.generateIdentityKeyPair();
+      const signedPreKey = await bundle.generateSignedPreKey();
+      const oneTimePreKeys = await bundle.generateOneTimePreKeys(20);
+
+      keyBundleRef.current = bundle;
+
+      // 2. Sign attestation: PGP key signs the messaging identity key
+      const attestation = await pgpId.signAttestation(identityPub, deviceId);
+
+      // 3. Generate recovery code
+      const { code: recCode, hash: recHash } = await generateRecoveryCode();
+      setRecoveryCode(recCode);
+
+      // 4. Create encrypted vault
+      const vault = new LocalVault();
+      const vaultKeyBytes = await vault.generateVaultKey();
+
+      // 5. Derive wrapping key from credential ID and store wrapped vault key
+      const credIdBytes = new TextEncoder().encode(credentialRef.current.credentialId);
+      const wrappingSalt = s.randombytes_buf(32);
+      const wrappingKey = await vault.deriveWrappingKey(credIdBytes, wrappingSalt);
+      const wrappedVk = await vault.wrapVaultKey(wrappingKey);
+      wrappingKey.fill(0);
+
+      // 6. Encrypt vault data
+      const vaultData = {
+        pgpPrivateKeyArmored: pgpId.getArmoredPrivateKey(),
+        identityKeyPair: {
+          publicKey: Buffer.from(bundle.getIdentityPublicKey()).toString('base64'),
+          privateKey: Buffer.from(bundle.getIdentityPrivateKey()).toString('base64'),
+        },
+        keyBundleExport: JSON.stringify(bundle.exportForVault(), (_, v) =>
+          v instanceof Uint8Array ? { __uint8: Buffer.from(v).toString('base64') } : v
+        ),
+        ratchetSessions: {},
         deviceId,
-      }));
-      localStorage.setItem('e2ee_vault', JSON.stringify({
-        created: Date.now(),
+        recoveryCodeHash: recHash,
+        createdAt: Date.now(),
         version: 1,
-      }));
+      };
+
+      const encryptedVault = await vault.encrypt(vaultData);
+
+      // 7. Store everything in localStorage
+      localStorage.setItem('e2ee_vault', encryptedVault);
+      localStorage.setItem('e2ee_wrapping_salt', Buffer.from(wrappingSalt).toString('base64'));
+      localStorage.setItem('e2ee_wrapped_vk', JSON.stringify(wrappedVk));
+      localStorage.setItem('e2ee_credential_id', credentialRef.current.credentialId);
+      localStorage.setItem('e2ee_identity', JSON.stringify({ fingerprint, deviceId }));
+
+      // 8. Publish attestation and prekeys to rendezvous server (best-effort)
+      try {
+        await publishIdentity({
+          attestation,
+          signedPreKey: {
+            keyId: signedPreKey.keyId,
+            publicKey: Buffer.from(signedPreKey.publicKey).toString('base64'),
+            signature: Buffer.from(signedPreKey.signature).toString('base64'),
+            timestamp: signedPreKey.timestamp,
+          },
+          oneTimePreKeys: oneTimePreKeys.map(k => ({
+            keyId: k.keyId,
+            publicKey: Buffer.from(k.publicKey).toString('base64'),
+          })),
+        });
+      } catch {
+        // Server may be unavailable; identity is still usable locally
+        console.warn('Could not publish to rendezvous server (will retry later)');
+      }
+
+      // 9. Clean up sensitive material from JS heap
+      vault.lock();
+      vaultKeyBytes.fill(0);
 
       setStep('recovery-code');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Failed to generate identity');
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,6 @@
 import sodium from 'libsodium-wrappers-sumo';
 import { initCrypto } from './sodium-init';
+import { hkdf } from './hkdf';
 import {
   MAX_SKIP,
   AEAD_KEY_LENGTH,
@@ -156,7 +157,7 @@ export class DoubleRatchet {
     const s = await initCrypto();
 
     // Try skipped message keys first (handles out-of-order messages)
-    const skippedKey = this.trySkippedMessageKey(message);
+    const skippedKey = this.trySkippedMessageKey(s, message);
     if (skippedKey) {
       return skippedKey;
     }
@@ -165,7 +166,7 @@ export class DoubleRatchet {
     const headerDHKey = message.header.dhPublicKey;
     if (
       !this.state.receivingRatchetPublicKey ||
-      !this.constantTimeEquals(headerDHKey, this.state.receivingRatchetPublicKey)
+      !this.constantTimeEquals(s, headerDHKey, this.state.receivingRatchetPublicKey)
     ) {
       // Skip any remaining messages in the previous receiving chain
       if (this.state.receivingChainKey) {
@@ -284,8 +285,9 @@ export class DoubleRatchet {
 
   /**
    * Try to decrypt using a previously skipped message key.
+   * Accepts initialized sodium instance to avoid race conditions.
    */
-  private trySkippedMessageKey(message: EncryptedMessage): Uint8Array | null {
+  private trySkippedMessageKey(s: typeof sodium, message: EncryptedMessage): Uint8Array | null {
     const keyLabel = this.skippedKeyLabel(
       message.header.dhPublicKey,
       message.header.messageNumber
@@ -297,7 +299,7 @@ export class DoubleRatchet {
 
     const ad = this.encodeHeader(message.header);
     try {
-      const plaintext = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(
+      const plaintext = s.crypto_aead_xchacha20poly1305_ietf_decrypt(
         null,
         message.ciphertext,
         ad,
@@ -314,7 +316,11 @@ export class DoubleRatchet {
 
   /**
    * Root key KDF: derive new root key and chain key from DH output.
-   * Uses BLAKE2b-based HKDF-like construction.
+   *
+   * Uses proper HKDF-BLAKE2b:
+   *   Extract: PRK = HKDF-Extract(salt=rootKey, ikm=dhOutput)
+   *   Expand:  output = HKDF-Expand(PRK, info=ROOT_KEY_INFO, length=64)
+   *   Split:   newRootKey = output[0:32], chainKey = output[32:64]
    */
   private static async kdfRK(
     s: typeof sodium,
@@ -322,26 +328,21 @@ export class DoubleRatchet {
     dhOutput: Uint8Array
   ): Promise<[Uint8Array, Uint8Array]> {
     const info = new TextEncoder().encode(ROOT_KEY_INFO);
-    const input = new Uint8Array([...rootKey, ...dhOutput]);
-
-    // Extract: PRK = BLAKE2b(salt=rootKey, input=dhOutput)
-    const prk = s.crypto_generichash(64, dhOutput, rootKey);
-
-    // Expand: derive two 32-byte keys
-    const expand1Input = new Uint8Array([...info, 0x01]);
-    const newRootKey = s.crypto_generichash(AEAD_KEY_LENGTH, expand1Input, prk);
-
-    const expand2Input = new Uint8Array([...info, ...newRootKey, 0x02]);
-    const chainKey = s.crypto_generichash(AEAD_KEY_LENGTH, expand2Input, prk);
-
-    prk.fill(0);
-    input.fill(0);
-
+    // HKDF with rootKey as salt and dhOutput as IKM, expanding to 64 bytes
+    const output = hkdf(s, dhOutput, rootKey, info, AEAD_KEY_LENGTH * 2);
+    const newRootKey = output.slice(0, AEAD_KEY_LENGTH);
+    const chainKey = output.slice(AEAD_KEY_LENGTH, AEAD_KEY_LENGTH * 2);
+    output.fill(0);
     return [newRootKey, chainKey];
   }
 
   /**
    * Chain key KDF: derive new chain key and message key.
+   *
+   * Uses HKDF-BLAKE2b with the current chain key as both salt and IKM
+   * (domain-separated by different info strings):
+   *   newChainKey = HKDF(ikm=chainKey, salt=null, info=CHAIN_KEY_INFO, 32)
+   *   messageKey  = HKDF(ikm=chainKey, salt=null, info=MESSAGE_KEY_INFO, 32)
    */
   private static async kdfCK(
     s: typeof sodium,
@@ -349,27 +350,23 @@ export class DoubleRatchet {
   ): Promise<[Uint8Array, Uint8Array]> {
     const chainInfo = new TextEncoder().encode(CHAIN_KEY_INFO);
     const msgInfo = new TextEncoder().encode(MESSAGE_KEY_INFO);
-
-    // Chain key = BLAKE2b(key=chainKey, input=chain_info || 0x01)
-    const ckInput = new Uint8Array([...chainInfo, 0x01]);
-    const newChainKey = s.crypto_generichash(AEAD_KEY_LENGTH, ckInput, chainKey);
-
-    // Message key = BLAKE2b(key=chainKey, input=msg_info || 0x02)
-    const mkInput = new Uint8Array([...msgInfo, 0x02]);
-    const messageKey = s.crypto_generichash(AEAD_KEY_LENGTH, mkInput, chainKey);
-
+    const newChainKey = hkdf(s, chainKey, null, chainInfo, AEAD_KEY_LENGTH);
+    const messageKey = hkdf(s, chainKey, null, msgInfo, AEAD_KEY_LENGTH);
     return [newChainKey, messageKey];
   }
 
   /**
    * Encode a message header as associated data for AEAD.
+   * Uses fixed-width 4-byte big-endian integers to prevent ambiguity.
    */
   private encodeHeader(header: MessageHeader): Uint8Array {
-    const encoder = new TextEncoder();
-    const meta = encoder.encode(
-      `${header.previousChainLength}:${header.messageNumber}`
-    );
-    return new Uint8Array([...header.dhPublicKey, ...meta]);
+    // 32 bytes DH public key + 4 bytes previousChainLength + 4 bytes messageNumber
+    const ad = new Uint8Array(32 + 4 + 4);
+    ad.set(header.dhPublicKey, 0);
+    const view = new DataView(ad.buffer);
+    view.setUint32(32, header.previousChainLength, false); // big-endian
+    view.setUint32(36, header.messageNumber, false);
+    return ad;
   }
 
   /**
@@ -381,10 +378,11 @@ export class DoubleRatchet {
 
   /**
    * Constant-time comparison of two Uint8Arrays.
+   * Requires initialized sodium instance to avoid race conditions.
    */
-  private constantTimeEquals(a: Uint8Array, b: Uint8Array): boolean {
+  private constantTimeEquals(s: typeof sodium, a: Uint8Array, b: Uint8Array): boolean {
     if (a.length !== b.length) return false;
-    return sodium.memcmp(a, b);
+    return s.memcmp(a, b);
   }
 
   /**

@@ -5,6 +5,7 @@ export { DoubleRatchet, type RatchetState, type EncryptedMessage } from './doubl
 export { LocalVault, type VaultData } from './local-vault';
 export { generateRecoveryCode, validateRecoveryCode } from './recovery';
 export { SafetyNumber } from './safety-number';
+export { hkdf, hkdfExtract, hkdfExpand, hkdfAsync } from './hkdf';
 export { initCrypto } from './sodium-init';
 export {
   HKDF_SALT_LENGTH,

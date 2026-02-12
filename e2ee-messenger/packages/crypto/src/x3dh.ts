@@ -1,7 +1,8 @@
 import sodium from 'libsodium-wrappers-sumo';
 import { initCrypto } from './sodium-init';
-import { X3DH_INFO, HKDF_SALT_LENGTH } from './constants';
-import { type PreKeyBundle, type SignedPreKey, KeyBundle } from './key-bundle';
+import { X3DH_INFO } from './constants';
+import { hkdf } from './hkdf';
+import { type PreKeyBundle, KeyBundle } from './key-bundle';
 
 export interface X3DHResult {
   sharedSecret: Uint8Array; // 32-byte shared secret for initializing Double Ratchet
@@ -178,31 +179,25 @@ export class X3DHHandshake {
   }
 
   /**
-   * KDF: HKDF-SHA512 to derive a 32-byte key from DH output.
-   * Uses a fixed salt (all zeros for initial derivation, per Signal spec).
+   * KDF: HKDF-BLAKE2b to derive a 32-byte shared secret from DH output.
+   *
+   * Per Signal's X3DH spec §2.2:
+   * - Prepend 32 bytes of 0xFF to avoid collisions with other protocol uses
+   * - Use all-zero salt for the initial derivation
+   * - Use application-specific info string for domain separation
+   *
+   * Uses proper HKDF (Extract-then-Expand) with BLAKE2b as the PRF.
    */
   private static kdf(s: typeof sodium, input: Uint8Array): Uint8Array {
-    // HKDF using sodium's generichash (BLAKE2b) as a KDF
-    // We prepend 32 bytes of 0xFF as per Signal's X3DH spec to avoid
-    // accidental collisions with other protocol uses.
     const prefix = new Uint8Array(32).fill(0xff);
-    const ikm = new Uint8Array([...prefix, ...input]);
+    const ikm = new Uint8Array(prefix.length + input.length);
+    ikm.set(prefix, 0);
+    ikm.set(input, prefix.length);
 
-    // Use HKDF-like construction with BLAKE2b
-    const salt = new Uint8Array(HKDF_SALT_LENGTH); // all zeros
     const info = new TextEncoder().encode(X3DH_INFO);
+    const okm = hkdf(s, ikm, null, info, 32);
 
-    // Extract phase
-    const prk = s.crypto_generichash(64, ikm, salt);
-
-    // Expand phase - derive 32 bytes
-    const expandInput = new Uint8Array([...info, 0x01]);
-    const okm = s.crypto_generichash(32, expandInput, prk);
-
-    // Clean up
     ikm.fill(0);
-    prk.fill(0);
-
     return okm;
   }
 }

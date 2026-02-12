@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initCrypto } from './sodium-init';
+import { hkdf, hkdfExtract, hkdfExpand } from './hkdf';
 import { PGPIdentity } from './pgp-identity';
 import { KeyBundle } from './key-bundle';
 import { X3DHHandshake } from './x3dh';
@@ -504,5 +505,231 @@ describe('Local Vault', () => {
   it('should fail decryption when locked', async () => {
     const vault = new LocalVault();
     await expect(vault.encrypt({} as any)).rejects.toThrow('Vault is locked');
+  });
+
+  it('should wrap and unwrap vault key using credential-derived wrapping key', async () => {
+    const s = await initCrypto();
+    const vault = new LocalVault();
+    const vaultKey = await vault.generateVaultKey();
+
+    // Simulate WebAuthn credentialId (stable bytes)
+    const credentialId = s.randombytes_buf(32);
+    const wrappingSalt = s.randombytes_buf(32);
+
+    // Derive wrapping key and wrap the vault key
+    const wrappingKey = await vault.deriveWrappingKey(credentialId, wrappingSalt);
+    const wrapped = await vault.wrapVaultKey(wrappingKey);
+
+    // Lock the vault (clears vault key from memory)
+    vault.lock();
+    expect(vault.isUnlocked()).toBe(false);
+
+    // Re-derive wrapping key (simulating a new session)
+    const wrappingKey2 = await vault.deriveWrappingKey(credentialId, wrappingSalt);
+
+    // Unwrap the vault key
+    await vault.unwrapVaultKey(wrappingKey2, wrapped);
+    expect(vault.isUnlocked()).toBe(true);
+
+    // Encrypt and decrypt data to verify the recovered vault key works
+    const testData = {
+      pgpPrivateKeyArmored: 'test',
+      identityKeyPair: { publicKey: 'pk', privateKey: 'sk' },
+      keyBundleExport: '{}',
+      ratchetSessions: {},
+      deviceId: 'wrap-test',
+      recoveryCodeHash: 'hash',
+      createdAt: Date.now(),
+      version: 1,
+    };
+
+    const encrypted = await vault.encrypt(testData);
+    const decrypted = await vault.decrypt(encrypted);
+    expect(decrypted.deviceId).toBe('wrap-test');
+
+    vault.lock();
+  });
+
+  it('should fail unwrap with wrong credential', async () => {
+    const s = await initCrypto();
+    const vault = new LocalVault();
+    await vault.generateVaultKey();
+
+    const credentialId = s.randombytes_buf(32);
+    const wrappingSalt = s.randombytes_buf(32);
+    const wrappingKey = await vault.deriveWrappingKey(credentialId, wrappingSalt);
+    const wrapped = await vault.wrapVaultKey(wrappingKey);
+
+    vault.lock();
+
+    // Try unwrapping with different credential
+    const wrongCredential = s.randombytes_buf(32);
+    const wrongWrappingKey = await vault.deriveWrappingKey(wrongCredential, wrappingSalt);
+
+    await expect(vault.unwrapVaultKey(wrongWrappingKey, wrapped)).rejects.toThrow();
+  });
+});
+
+describe('HKDF-BLAKE2b', () => {
+  it('should produce deterministic output', async () => {
+    const s = await initCrypto();
+    const ikm = new TextEncoder().encode('input keying material');
+    const salt = s.randombytes_buf(32);
+    const info = new TextEncoder().encode('test info');
+
+    const out1 = hkdf(s, ikm, salt, info, 32);
+    const out2 = hkdf(s, ikm, salt, info, 32);
+
+    expect(Buffer.from(out1).toString('hex')).toBe(Buffer.from(out2).toString('hex'));
+  });
+
+  it('should produce different output for different info strings', async () => {
+    const s = await initCrypto();
+    const ikm = new TextEncoder().encode('same ikm');
+    const salt = new Uint8Array(32);
+
+    const out1 = hkdf(s, ikm, salt, new TextEncoder().encode('info-a'), 32);
+    const out2 = hkdf(s, ikm, salt, new TextEncoder().encode('info-b'), 32);
+
+    expect(Buffer.from(out1).toString('hex')).not.toBe(Buffer.from(out2).toString('hex'));
+  });
+
+  it('should produce different output for different salts', async () => {
+    const s = await initCrypto();
+    const ikm = new TextEncoder().encode('same ikm');
+    const info = new TextEncoder().encode('same info');
+
+    const out1 = hkdf(s, ikm, new Uint8Array(32).fill(0), info, 32);
+    const out2 = hkdf(s, ikm, new Uint8Array(32).fill(1), info, 32);
+
+    expect(Buffer.from(out1).toString('hex')).not.toBe(Buffer.from(out2).toString('hex'));
+  });
+
+  it('should support multi-block expansion', async () => {
+    const s = await initCrypto();
+    const ikm = s.randombytes_buf(32);
+    const info = new TextEncoder().encode('expand');
+
+    // Request 128 bytes (2 BLAKE2b blocks)
+    const out = hkdf(s, ikm, null, info, 128);
+    expect(out.length).toBe(128);
+
+    // First 32 bytes should match a 32-byte request
+    const short = hkdf(s, ikm, null, info, 32);
+    expect(Buffer.from(out.slice(0, 32)).toString('hex')).toBe(Buffer.from(short).toString('hex'));
+  });
+
+  it('should handle null salt (defaults to all-zero)', async () => {
+    const s = await initCrypto();
+    const ikm = s.randombytes_buf(32);
+    const info = new TextEncoder().encode('test');
+
+    const outNull = hkdf(s, ikm, null, info, 32);
+    const outZero = hkdf(s, ikm, new Uint8Array(64), info, 32);
+
+    // null salt should equal all-zero salt
+    expect(Buffer.from(outNull).toString('hex')).toBe(Buffer.from(outZero).toString('hex'));
+  });
+
+  it('extract and expand should compose correctly', async () => {
+    const s = await initCrypto();
+    const ikm = s.randombytes_buf(32);
+    const salt = s.randombytes_buf(32);
+    const info = new TextEncoder().encode('compose');
+
+    // Full HKDF
+    const full = hkdf(s, ikm, salt, info, 32);
+
+    // Manual extract + expand
+    const prk = hkdfExtract(s, salt, ikm);
+    const manual = hkdfExpand(s, prk, info, 32);
+
+    expect(Buffer.from(full).toString('hex')).toBe(Buffer.from(manual).toString('hex'));
+  });
+});
+
+describe('Double Ratchet - edge cases', () => {
+  // Helper to set up a ratchet pair
+  async function setupRatchetPair() {
+    const aliceBundle = new KeyBundle();
+    await aliceBundle.generateIdentityKeyPair();
+    const bobBundle = new KeyBundle();
+    await bobBundle.generateIdentityKeyPair();
+    await bobBundle.generateSignedPreKey();
+    await bobBundle.generateOneTimePreKeys(5);
+
+    const bobPKB = bobBundle.getPublicPreKeyBundle();
+    const aliceX3DH = await X3DHHandshake.initiatorAgree(
+      { publicKey: aliceBundle.getIdentityPublicKey(), privateKey: aliceBundle.getIdentityPrivateKey() },
+      bobPKB
+    );
+    let otpk: Uint8Array | undefined;
+    if (aliceX3DH.usedOneTimePreKeyId !== undefined) {
+      otpk = bobBundle.consumeOneTimePreKey(aliceX3DH.usedOneTimePreKeyId);
+    }
+    const bobSS = await X3DHHandshake.responderAgree(
+      { publicKey: bobBundle.getIdentityPublicKey(), privateKey: bobBundle.getIdentityPrivateKey() },
+      bobBundle.getSignedPreKeyPrivate(),
+      aliceBundle.getIdentityPublicKey(),
+      aliceX3DH.ephemeralPublicKey,
+      otpk
+    );
+
+    const alice = await DoubleRatchet.initInitiator(aliceX3DH.sharedSecret, bobPKB.signedPreKey.publicKey);
+    const bob = await DoubleRatchet.initResponder(bobSS, {
+      publicKey: bobPKB.signedPreKey.publicKey,
+      privateKey: bobBundle.getSignedPreKeyPrivate(),
+    });
+
+    return { alice, bob, aliceBundle, bobBundle };
+  }
+
+  it('should handle many ratchet steps without error', async () => {
+    const { alice, bob, aliceBundle, bobBundle } = await setupRatchetPair();
+
+    // 20 round-trips to exercise multiple DH ratchet steps
+    for (let i = 0; i < 20; i++) {
+      const enc = await alice.encrypt(new TextEncoder().encode(`Alice msg ${i}`));
+      const dec = await bob.decrypt(enc);
+      expect(new TextDecoder().decode(dec)).toBe(`Alice msg ${i}`);
+
+      const enc2 = await bob.encrypt(new TextEncoder().encode(`Bob msg ${i}`));
+      const dec2 = await alice.decrypt(enc2);
+      expect(new TextDecoder().decode(dec2)).toBe(`Bob msg ${i}`);
+    }
+
+    alice.destroy();
+    bob.destroy();
+    aliceBundle.destroy();
+    bobBundle.destroy();
+  });
+
+  it('should reject replay of consumed message', async () => {
+    const { alice, bob, aliceBundle, bobBundle } = await setupRatchetPair();
+
+    const enc = await alice.encrypt(new TextEncoder().encode('unique'));
+    const dec = await bob.decrypt(enc);
+    expect(new TextDecoder().decode(dec)).toBe('unique');
+
+    // Replaying the same message should fail (key already consumed)
+    await expect(bob.decrypt(enc)).rejects.toThrow();
+
+    alice.destroy();
+    bob.destroy();
+    aliceBundle.destroy();
+    bobBundle.destroy();
+  });
+
+  it('should handle empty message', async () => {
+    const { alice, bob, aliceBundle, bobBundle } = await setupRatchetPair();
+
+    const enc = await alice.encrypt(new Uint8Array(0));
+    const dec = await bob.decrypt(enc);
+    expect(dec.length).toBe(0);
+
+    alice.destroy();
+    bob.destroy();
+    aliceBundle.destroy();
+    bobBundle.destroy();
   });
 });
