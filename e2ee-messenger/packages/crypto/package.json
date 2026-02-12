@@ -1,0 +1,27 @@
+{
+  "name": "@e2ee/crypto",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "libsodium-wrappers-sumo": "^0.7.13",
+    "openpgp": "^5.11.0"
+  },
+  "devDependencies": {
+    "@types/libsodium-wrappers-sumo": "^0.7.8",
+    "vitest": "^1.2.0",
+    "typescript": "^5.3.3"
+  }
+}

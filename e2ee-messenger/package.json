@@ -1,0 +1,32 @@
+{
+  "name": "e2ee-messenger",
+  "version": "0.1.0",
+  "private": true,
+  "description": "End-to-end encrypted P2P messaging platform with PGP identity anchoring",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "dev:web": "npm run dev -w apps/web",
+    "dev:server": "npm run dev -w apps/server",
+    "build": "npm run build -w packages/crypto && npm run build -w packages/ui && npm run build -w apps/server && npm run build -w apps/web",
+    "test": "npm run test -w packages/crypto && npm run test -w apps/server",
+    "test:crypto": "npm run test -w packages/crypto",
+    "test:server": "npm run test -w apps/server",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit -p packages/crypto/tsconfig.json && tsc --noEmit -p apps/server/tsconfig.json",
+    "clean": "rm -rf packages/*/dist apps/*/dist apps/web/.next node_modules/.cache",
+    "demo": "bash scripts/demo.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
