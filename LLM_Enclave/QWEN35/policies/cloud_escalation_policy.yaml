@@ -1,0 +1,151 @@
+# =============================================================================
+# LLM ENCLAVE - CLOUD ESCALATION POLICY
+# =============================================================================
+# Location: D:\ProjectsHome\LLM_Enclave\QWEN35\policies\cloud_escalation_policy.yaml
+#
+# This policy defines when and how cloud model usage (Claude Code, etc.)
+# is permitted. By default, ALL cloud usage is blocked and requires
+# manual confirmation through the structured attempt process.
+#
+# This file controls the escalation gate. It does NOT control the
+# Workspace Bridge (see bridge_policy.yaml for that).
+# =============================================================================
+
+# -------------------------------------------------------
+# DEFAULT: BLOCK ALL CLOUD USAGE
+# -------------------------------------------------------
+# When true, no cloud escalation is permitted.
+# You must manually set this to false AND complete the
+# escalation checklist before using any paid API model.
+cloud_usage_blocked: true
+
+# -------------------------------------------------------
+# LOCAL MODEL CONFIGURATION
+# -------------------------------------------------------
+# The default model for all tasks
+default_model: "qwen-local"
+default_backend: "ollama"
+default_endpoint: "http://127.0.0.1:11434"
+
+# -------------------------------------------------------
+# STRUCTURED ATTEMPT PROCESS
+# -------------------------------------------------------
+# Before escalating to cloud, ALL of these steps must be completed.
+# The system logs which steps were completed.
+required_attempt_steps:
+  - step: 1
+    description: "Attempt task with Qwen local (default parameters)"
+    required: true
+
+  - step: 2
+    description: "Retry with adjusted prompt (more context, examples, constraints)"
+    required: true
+
+  - step: 3
+    description: "Retry with different model parameters (temperature, top_p, etc.)"
+    required: true
+
+  - step: 4
+    description: "Document failure reason and fill escalation checklist"
+    required: true
+
+# -------------------------------------------------------
+# VALID ESCALATION CATEGORIES
+# -------------------------------------------------------
+# Only these categories are accepted as reasons for cloud usage.
+# Any reason not in this list is rejected.
+valid_escalation_categories:
+  - id: "cross_repo_reasoning"
+    description: "Task spans 3+ repositories requiring understanding of their interactions"
+    example: "Coordinating API changes across frontend, backend, and shared library repos"
+
+  - id: "complex_refactor"
+    description: "Multi-step refactor touching 10+ files with interdependencies and regression risk"
+    example: "Migrating a codebase from one framework to another"
+
+  - id: "ambiguous_bug"
+    description: "Bug that defies straightforward analysis, requiring deep reasoning about edge cases"
+    example: "Race condition manifesting only under specific timing and load patterns"
+
+  - id: "high_correctness_time_pressure"
+    description: "Task where errors have significant consequences and speed matters"
+    example: "Fixing a production security vulnerability during an incident"
+
+  - id: "security_review"
+    description: "Code handling authentication, authorization, cryptography, or sensitive data"
+    example: "Reviewing a custom authentication flow for vulnerabilities"
+
+  - id: "frontier_code_generation"
+    description: "Task requiring state-of-the-art code quality that local models consistently fail at"
+    example: "Implementing a complex algorithm with subtle correctness requirements"
+
+# -------------------------------------------------------
+# TASKS THAT DO NOT QUALIFY FOR CLOUD ESCALATION
+# -------------------------------------------------------
+never_escalate:
+  - "Routine code completion"
+  - "Documentation writing"
+  - "Simple refactors (rename, extract function, move file)"
+  - "Code formatting or linting"
+  - "Generating test cases for well-defined functions"
+  - "Explaining existing code"
+  - "Generating boilerplate"
+  - "Simple bug fixes with clear root causes"
+  - "Markdown/README editing"
+  - "Configuration file changes"
+  - "Git operations"
+
+# -------------------------------------------------------
+# CONFIRMATION REQUIREMENTS
+# -------------------------------------------------------
+confirmation:
+  # Typed confirmation string required before cloud usage
+  confirmation_string: "Lance Confirms Cloud Escalation"
+
+  # Must include reason category from valid_escalation_categories
+  require_category: true
+
+  # Must include file count (integer, not filenames)
+  require_file_count: true
+
+  # Must NOT include source code or file paths
+  prohibit_source_code: true
+
+# -------------------------------------------------------
+# AUDIT LOGGING
+# -------------------------------------------------------
+audit:
+  # Log file location
+  log_file: "D:\\ProjectsHome\\LLM_Enclave\\QWEN35\\logs\\cloud_escalation_audit.log"
+
+  # What to log (metadata only)
+  log_fields:
+    - "timestamp"
+    - "reason_category"
+    - "files_touched_count"
+    - "model_used"
+    - "task_summary"        # 5-10 words max, no proprietary details
+    - "confirmation_note"
+
+  # What NEVER to log
+  never_log:
+    - "source_code"
+    - "file_paths"
+    - "file_names"
+    - "prompt_text"
+    - "model_responses"
+    - "credentials"
+
+# -------------------------------------------------------
+# COST TRACKING
+# -------------------------------------------------------
+cost_tracking:
+  # Enable local cost tracking
+  enabled: true
+
+  # Monthly summary generation
+  monthly_summary: true
+
+  # Alert threshold (number of escalations per month)
+  # When exceeded, display a warning (informational only, not blocking)
+  monthly_alert_threshold: 10

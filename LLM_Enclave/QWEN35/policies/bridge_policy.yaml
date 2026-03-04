@@ -1,0 +1,275 @@
+# =============================================================================
+# LLM ENCLAVE - WORKSPACE BRIDGE POLICY
+# =============================================================================
+# Location: D:\ProjectsHome\LLM_Enclave\QWEN35\policies\bridge_policy.yaml
+#
+# This policy file controls all Workspace Bridge operations:
+# - Which project directories can receive changes
+# - Which file types are allowed
+# - Size limits for file transfers
+# - Patterns that are always denied
+# - Secret scanning and redaction rules
+# - Logging configuration
+#
+# SAFE DEFAULTS: Everything is blocked until you explicitly configure it.
+# =============================================================================
+
+# -------------------------------------------------------
+# CRITICAL SAFETY FLAG
+# -------------------------------------------------------
+# When true, the apply script (05_apply_changes.ps1) will REFUSE
+# all apply operations. You MUST review this entire file,
+# configure your allowed paths, then set this to false.
+policy_not_configured: true
+
+# -------------------------------------------------------
+# ALLOWED TARGET ROOTS
+# -------------------------------------------------------
+# Projects that the apply script is allowed to write to.
+# Initially EMPTY. Add your project paths here to enable
+# the bridge workflow for those projects.
+#
+# Rules:
+# - Each entry must be an absolute path under D:\ProjectsHome
+# - Paths outside D:\ProjectsHome are always rejected
+# - The apply script checks every target path against this list
+#
+# Example:
+#   allowed_target_roots:
+#     - "D:\\ProjectsHome\\MyProject"
+#     - "D:\\ProjectsHome\\AnotherProject"
+allowed_target_roots: []
+
+# -------------------------------------------------------
+# ALLOWED FILE EXTENSIONS
+# -------------------------------------------------------
+# Only files with these extensions can be exported or applied.
+# Add or remove extensions as needed for your projects.
+allowed_extensions:
+  - ".py"
+  - ".js"
+  - ".ts"
+  - ".jsx"
+  - ".tsx"
+  - ".html"
+  - ".css"
+  - ".scss"
+  - ".less"
+  - ".json"
+  - ".yaml"
+  - ".yml"
+  - ".md"
+  - ".txt"
+  - ".toml"
+  - ".cfg"
+  - ".ini"
+  - ".sh"
+  - ".ps1"
+  - ".bat"
+  - ".cmd"
+  - ".rs"
+  - ".go"
+  - ".java"
+  - ".xml"
+  - ".sql"
+  - ".r"
+  - ".rmd"
+  - ".vue"
+  - ".svelte"
+  - ".astro"
+  - ".patch"
+  - ".diff"
+  - ".c"
+  - ".cpp"
+  - ".h"
+  - ".hpp"
+  - ".cs"
+  - ".rb"
+  - ".php"
+  - ".swift"
+  - ".kt"
+  - ".dart"
+  - ".ex"
+  - ".exs"
+  - ".erl"
+  - ".hs"
+  - ".lua"
+  - ".pl"
+  - ".pm"
+  - ".tf"
+  - ".hcl"
+  - ".dockerfile"
+  - ".dockerignore"
+  - ".gitignore"
+  - ".editorconfig"
+
+# -------------------------------------------------------
+# SIZE LIMITS
+# -------------------------------------------------------
+# Maximum file size for any single file (in bytes)
+max_file_size_bytes: 1048576
+
+# Maximum total size for a single apply batch (in bytes)
+max_batch_size_bytes: 10485760
+
+# -------------------------------------------------------
+# DENY PATTERNS
+# -------------------------------------------------------
+# Files matching ANY of these regex patterns are ALWAYS
+# blocked from export and apply operations.
+deny_patterns:
+  # Cryptographic keys and certificates
+  - '.*\.key$'
+  - '.*\.pem$'
+  - '.*\.pfx$'
+  - '.*\.p12$'
+  - '.*\.cer$'
+  - '.*\.crt$'
+  - '.*\.jks$'
+  - '.*\.keystore$'
+
+  # Environment and secret files
+  - '.*\.env$'
+  - '.*\.env\..*'
+  - '.*\.secret$'
+  - '.*\.secrets$'
+
+  # Password and credential files
+  - '.*password.*'
+  - '.*credential.*'
+  - '.*\.htpasswd$'
+  - '.*\.netrc$'
+  - '.*\.pgpass$'
+
+  # Token and auth files
+  - '.*token.*\.json$'
+  - '.*token.*\.txt$'
+  - '.*\.npmrc$'
+  - '.*\.pypirc$'
+
+  # SSH keys
+  - '.*id_rsa.*'
+  - '.*id_ed25519.*'
+  - '.*id_ecdsa.*'
+  - '.*id_dsa.*'
+  - '.*authorized_keys$'
+  - '.*known_hosts$'
+
+  # Cloud provider credentials
+  - '.*aws.*credentials.*'
+  - '.*\.azure.*credentials.*'
+  - '.*gcloud.*credentials.*'
+  - '.*service.account.*\.json$'
+
+  # Database files
+  - '.*\.sqlite$'
+  - '.*\.db$'
+  - '.*\.mdb$'
+
+  # Binary and compiled files
+  - '.*\.exe$'
+  - '.*\.dll$'
+  - '.*\.so$'
+  - '.*\.dylib$'
+  - '.*\.bin$'
+  - '.*\.obj$'
+  - '.*\.o$'
+  - '.*\.class$'
+  - '.*\.pyc$'
+  - '.*\.pyo$'
+  - '.*\.wasm$'
+
+# -------------------------------------------------------
+# SECRET SCANNING
+# -------------------------------------------------------
+secret_scanning:
+  # Enable or disable secret scanning during export
+  enabled: true
+
+  # Mode: "block" (refuse file), "redact" (replace matches), "warn" (log warning)
+  mode: "block"
+
+  # Custom patterns to scan for (in addition to built-in patterns)
+  custom_patterns: []
+  #   - name: "My Custom Token"
+  #     pattern: 'myapp_token_[A-Za-z0-9]{32}'
+
+  # Files to ignore during secret scanning (false positive exceptions)
+  ignore_files: []
+  #   - "test_data/mock_credentials.json"
+
+# -------------------------------------------------------
+# REDACTION RULES
+# -------------------------------------------------------
+# Applied when secret_scanning mode is "redact"
+redaction_rules:
+  - name: "AWS Access Key"
+    pattern: 'AKIA[0-9A-Z]{16}'
+    replacement: "[REDACTED:aws_access_key]"
+
+  - name: "AWS Secret Key"
+    pattern: '(?i)(aws_secret_access_key|aws_secret)\s*[=:]\s*\S+'
+    replacement: "[REDACTED:aws_secret_key]"
+
+  - name: "GitHub Token"
+    pattern: 'gh[pousr]_[A-Za-z0-9_]{36,}'
+    replacement: "[REDACTED:github_token]"
+
+  - name: "Generic API Key"
+    pattern: '(?i)(api[_-]?key|apikey)\s*[=:]\s*["\x27]?[A-Za-z0-9\-._]{20,}'
+    replacement: "[REDACTED:api_key]"
+
+  - name: "Generic Password"
+    pattern: '(?i)(password|passwd|pwd)\s*[=:]\s*["\x27]?\S{8,}'
+    replacement: "[REDACTED:password]"
+
+  - name: "Generic Secret"
+    pattern: '(?i)(secret|token|auth)\s*[=:]\s*["\x27]?\S{16,}'
+    replacement: "[REDACTED:secret]"
+
+  - name: "Private Key Block"
+    pattern: '-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----'
+    replacement: "[REDACTED:private_key_block]"
+
+  - name: "Connection String"
+    pattern: '(?i)(server|host|data source)=[^;]+;.*(password|pwd)=[^;]+'
+    replacement: "[REDACTED:connection_string]"
+
+  - name: "Bearer Token"
+    pattern: '(?i)bearer\s+[A-Za-z0-9\-._~+/]{20,}=*'
+    replacement: "[REDACTED:bearer_token]"
+
+  - name: "JWT Token"
+    pattern: 'eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_.+/=]+'
+    replacement: "[REDACTED:jwt_token]"
+
+# -------------------------------------------------------
+# LOGGING
+# -------------------------------------------------------
+logging:
+  level: "INFO"
+
+  # What IS safe to log (metadata only)
+  safe_to_log:
+    - "file paths"
+    - "file sizes"
+    - "operation types"
+    - "timestamps"
+    - "user confirmations"
+    - "hash values"
+    - "policy violations"
+    - "error messages"
+
+  # What is NOT safe to log (content)
+  never_log:
+    - "file contents"
+    - "prompt text"
+    - "model responses"
+    - "source code"
+    - "diff content in main log"
+    - "secret values"
+    - "credentials"
+
+  log_directory: "D:\\ProjectsHome\\LLM_Enclave\\QWEN35\\logs"
+  max_log_file_size_mb: 50
+  log_rotation: "manual"
