@@ -12,7 +12,7 @@
 #>
 
 param(
-    [string]$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35",
+    [string]$EnclaveRoot = (Split-Path -Parent $PSCommandPath),
     [switch]$NoBrowser,
     [switch]$Verbose
 )
