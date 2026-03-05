@@ -26,6 +26,8 @@ from datetime import datetime
 # Configuration
 # ---------------------------------------------------------------------------
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+if not OLLAMA_HOST.startswith("http"):
+    OLLAMA_HOST = f"http://{OLLAMA_HOST}"
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen-local")
 
 # Detect enclave root (works on both Windows and Linux)
