@@ -161,7 +161,9 @@ if (Test-Command "node") {
 if (-not $nodeOk) {
     Write-Host "  Installing Node.js 22 LTS via winget..." -ForegroundColor White
     try {
+        $ErrorActionPreference = "Continue"
         & winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements 2>&1 | Out-Null
+        $ErrorActionPreference = "Stop"
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
         if (Test-Command "node") {
             Write-Ok "Node.js installed: $(node --version)"
@@ -184,12 +186,16 @@ if (Test-Command "openclaw") {
     $ocVersion = & openclaw --version 2>&1
     Write-Skip "OpenClaw already installed ($ocVersion)"
     Write-Host "  Checking for updates..." -ForegroundColor White
+    $ErrorActionPreference = "Continue"
     & npm update -g openclaw 2>&1 | Out-Null
+    $ErrorActionPreference = "Stop"
     Write-Ok "OpenClaw is up to date"
     $openclawInstalled = $true
 } else {
     Write-Host "  Installing OpenClaw globally via npm..." -ForegroundColor White
+    $ErrorActionPreference = "Continue"
     & npm install -g openclaw@latest 2>&1
+    $ErrorActionPreference = "Stop"
     if (Test-Command "openclaw") {
         Write-Ok "OpenClaw installed: $(openclaw --version 2>&1)"
         $openclawInstalled = $true
