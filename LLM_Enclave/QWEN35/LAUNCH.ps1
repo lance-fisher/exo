@@ -74,19 +74,10 @@ if (-not (Test-Command "ollama")) {
     return
 }
 
-# OpenClaw check removed — using Python CLI (qwen_chat.py) instead.
-# OpenClaw's npm binary is not a valid Win32 application on Windows.
+# OpenClaw disabled — its npm binary is not a valid Win32 application on Windows.
+# Using Python CLI (qwen_chat.py) instead.
 $UsePythonCli = $true
-if (Test-Command "openclaw") {
-    # If openclaw is available and works, prefer it
-    try {
-        $ocVer = & openclaw --version 2>$null
-        if ($ocVer) { $UsePythonCli = $false }
-    } catch {}
-}
-if ($UsePythonCli) {
-    Write-Status "Using Python CLI mode (qwen_chat.py)"
-}
+Write-Status "Using Python CLI mode (qwen_chat.py)"
 
 # Read saved model choice
 $modelFile = "$EnclaveRoot\runtime\config\active_model.txt"
