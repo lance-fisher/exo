@@ -17,8 +17,6 @@ param(
     [switch]$Verbose
 )
 
-$ErrorActionPreference = "Stop"
-
 # --- Helpers ------------------------------------------------------------------
 
 function Write-Status { param($msg) Write-Host "  $msg" -ForegroundColor Cyan }
@@ -62,22 +60,24 @@ Write-Host ""
 
 # --- Ensure directories exist ------------------------------------------------
 
-foreach ($dir in @("$EnclaveRoot\logs\runtime", "$EnclaveRoot\runtime")) {
+foreach ($dir in @("$EnclaveRoot\logs\runtime", "$EnclaveRoot\runtime", "$EnclaveRoot\runtime\config")) {
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
 }
+
+try {
 
 # --- Preflight checks --------------------------------------------------------
 
 if (-not (Test-Command "ollama")) {
     Write-Fail "Ollama not found. Run SETUP.ps1 first."
     Read-Host "Press Enter to exit"
-    exit 1
+    return
 }
 
 if (-not (Test-Command "openclaw")) {
     Write-Fail "OpenClaw not found. Run SETUP.ps1 first."
     Read-Host "Press Enter to exit"
-    exit 1
+    return
 }
 
 # Read saved model choice
@@ -114,7 +114,7 @@ if (Test-PortOpen -Port 11434) {
         Write-Ok "Ollama started (PID: $($ollamaProc.Id))"
     } else {
         Read-Host "Press Enter to exit"
-        exit 1
+        return
     }
 }
 
@@ -148,7 +148,7 @@ if (Test-PortOpen -Port 18789) {
         Write-Ok "OpenClaw started (PID: $($ocProc.Id))"
     } else {
         Read-Host "Press Enter to exit"
-        exit 1
+        return
     }
 }
 
@@ -224,4 +224,14 @@ try {
     }
 
     Write-Ok "All services stopped cleanly"
+}
+
+} catch {
+    Write-Host ""
+    Write-Fail "Something went wrong: $_"
+    Write-Host ""
+    Write-Host "  Error details:" -ForegroundColor Yellow
+    Write-Host "  $($_.ScriptStackTrace)" -ForegroundColor DarkGray
+    Write-Host ""
+    Read-Host "Press Enter to close"
 }
