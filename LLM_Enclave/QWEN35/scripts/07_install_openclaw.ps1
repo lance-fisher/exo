@@ -222,11 +222,11 @@ ollama_host: "http://127.0.0.1:11434"
 ollama_model: "qwen-local"
 
 # File Access - restricted to bridge directories only
-workspace_root: "D:\\ProjectsHome\\LLM_Enclave\\QWEN35\\workspace_bridge"
+workspace_root: "$($EnclaveRoot -replace '\\','\\')\workspace_bridge"
 allowed_directories:
-  - "D:\\ProjectsHome\\LLM_Enclave\\QWEN35\\workspace_bridge\\inbox"
-  - "D:\\ProjectsHome\\LLM_Enclave\\QWEN35\\workspace_bridge\\outbox"
-  - "D:\\ProjectsHome\\LLM_Enclave\\QWEN35\\workspace_bridge\\scratch"
+  - "$($EnclaveRoot -replace '\\','\\')\workspace_bridge\inbox"
+  - "$($EnclaveRoot -replace '\\','\\')\workspace_bridge\outbox"
+  - "$($EnclaveRoot -replace '\\','\\')\workspace_bridge\scratch"
 
 # Security - all external access disabled
 telemetry_enabled: false
@@ -246,7 +246,7 @@ smart_context_enabled: false
 additional_roots: []
 
 # Logging - metadata only, no content
-log_directory: "D:\\ProjectsHome\\LLM_Enclave\\QWEN35\\logs\\openclaw"
+log_directory: "$($EnclaveRoot -replace '\\','\\')\logs\openclaw"
 log_level: "INFO"
 log_prompts: false
 log_responses: false

@@ -12,16 +12,16 @@ Write-Host "`n  Stopping Local AI Coder..." -ForegroundColor Yellow
 
 # Stop by PID files
 foreach ($svc in @("openclaw", "ollama")) {
-    $pidFile = "$EnclaveRoot\runtime\$svc.pid"
-    if (Test-Path $pidFile) {
-        $pid = [int](Get-Content $pidFile -Raw).Trim()
+    $svcPidFile = "$EnclaveRoot\runtime\$svc.pid"
+    if (Test-Path $svcPidFile) {
+        $svcPid = [int](Get-Content $svcPidFile -Raw).Trim()
         try {
-            Stop-Process -Id $pid -Force -ErrorAction Stop
-            Write-Host "  [OK] Stopped $svc (PID $pid)" -ForegroundColor Green
+            Stop-Process -Id $svcPid -Force -ErrorAction Stop
+            Write-Host "  [OK] Stopped $svc (PID $svcPid)" -ForegroundColor Green
         } catch {
             Write-Host "  [SKIP] $svc was not running" -ForegroundColor DarkGray
         }
-        Remove-Item $pidFile -ErrorAction SilentlyContinue
+        Remove-Item $svcPidFile -ErrorAction SilentlyContinue
     }
 }
 

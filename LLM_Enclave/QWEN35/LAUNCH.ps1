@@ -151,6 +151,12 @@ if ($UsePythonCli) {
     Write-Host "  Type /help for commands, /quit to exit." -ForegroundColor DarkGray
     Write-Host ""
 
+    if (-not (Test-Command "python")) {
+        Write-Fail "Python not found in PATH. Please install Python 3.x."
+        Read-Host "Press Enter to exit"
+        return
+    }
+
     $env:OLLAMA_MODEL = $model
     python $cliPath
 

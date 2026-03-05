@@ -252,7 +252,7 @@ if (-not (Test-Path $modelfilePath)) {
 # Update the FROM line to point to your verified model file.
 # See docs\README.md for instructions.
 
-FROM D:\ProjectsHome\LLM_Enclave\QWEN35\models\verified\MODEL_FILE_NAME_HERE.gguf
+FROM $EnclaveRoot\models\verified\MODEL_FILE_NAME_HERE.gguf
 
 PARAMETER temperature 0.3
 PARAMETER top_p 0.9

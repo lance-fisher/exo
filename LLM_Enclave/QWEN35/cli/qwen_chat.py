@@ -72,17 +72,14 @@ def ollama_chat(messages, stream=True):
 
     try:
         with urllib.request.urlopen(req, timeout=300) as resp:
-            full_response = ""
             for line in resp:
                 if line:
                     chunk = json.loads(line.decode("utf-8"))
                     token = chunk.get("message", {}).get("content", "")
                     if token:
-                        full_response += token
                         yield token
                     if chunk.get("done"):
                         break
-            return full_response
     except urllib.error.URLError as e:
         yield f"\n[ERROR] Cannot reach Ollama at {OLLAMA_HOST}: {e}\n"
         yield "Make sure Ollama is running: ollama serve\n"
@@ -125,7 +122,9 @@ def read_inbox_file(filepath):
     """Read a file from the inbox. Path must be relative to inbox."""
     target = (INBOX / filepath).resolve()
     # Security: ensure path is within inbox
-    if not str(target).startswith(str(INBOX.resolve())):
+    try:
+        target.relative_to(INBOX.resolve())
+    except ValueError:
         return None, "Access denied: path outside inbox boundary."
     if not target.exists():
         return None, f"File not found: {filepath}"
@@ -139,7 +138,9 @@ def write_outbox_file(filepath, content):
     """Write a file to the outbox. Path must be relative to outbox."""
     target = (OUTBOX / filepath).resolve()
     # Security: ensure path is within outbox
-    if not str(target).startswith(str(OUTBOX.resolve())):
+    try:
+        target.relative_to(OUTBOX.resolve())
+    except ValueError:
         return "Access denied: path outside outbox boundary."
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
