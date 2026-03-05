@@ -74,10 +74,18 @@ if (-not (Test-Command "ollama")) {
     return
 }
 
-if (-not (Test-Command "openclaw")) {
-    Write-Fail "OpenClaw not found. Run SETUP.ps1 first."
-    Read-Host "Press Enter to exit"
-    return
+# OpenClaw check removed — using Python CLI (qwen_chat.py) instead.
+# OpenClaw's npm binary is not a valid Win32 application on Windows.
+$UsePythonCli = $true
+if (Test-Command "openclaw") {
+    # If openclaw is available and works, prefer it
+    try {
+        $ocVer = & openclaw --version 2>$null
+        if ($ocVer) { $UsePythonCli = $false }
+    } catch {}
+}
+if ($UsePythonCli) {
+    Write-Status "Using Python CLI mode (qwen_chat.py)"
 }
 
 # Read saved model choice
@@ -129,101 +137,112 @@ try {
     Write-Status "Model pre-load timed out - it will load on first chat message"
 }
 
-# --- Start OpenClaw ----------------------------------------------------------
+# --- Start interface ----------------------------------------------------------
 
-if (Test-PortOpen -Port 18789) {
-    Write-Ok "OpenClaw already running on :18789"
-} else {
-    Write-Status "Starting OpenClaw gateway..."
-
-    # Start OpenClaw in background
-    $ocProc = Start-Process -FilePath "openclaw" -ArgumentList "gateway", "--headless" `
-        -WindowStyle Hidden -PassThru `
-        -RedirectStandardOutput "$EnclaveRoot\logs\runtime\openclaw_stdout.log" `
-        -RedirectStandardError "$EnclaveRoot\logs\runtime\openclaw_stderr.log"
-
-    $ocProc.Id | Out-File "$EnclaveRoot\runtime\openclaw.pid" -Encoding UTF8 -NoNewline
-
-    if (Wait-ForPort -Port 18789 -Label "OpenClaw" -TimeoutSeconds 30) {
-        Write-Ok "OpenClaw started (PID: $($ocProc.Id))"
-    } else {
+if ($UsePythonCli) {
+    # Launch the Python CLI directly — no OpenClaw needed
+    $cliPath = "$EnclaveRoot\cli\qwen_chat.py"
+    if (-not (Test-Path $cliPath)) {
+        Write-Fail "Python CLI not found at: $cliPath"
         Read-Host "Press Enter to exit"
         return
     }
-}
 
-# --- Open browser ------------------------------------------------------------
+    Write-Host ""
+    Write-Host "===============================================================" -ForegroundColor Green
+    Write-Host "  READY - Local AI Coder (Terminal Mode)" -ForegroundColor Green
+    Write-Host "===============================================================" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  Model:   $model" -ForegroundColor White
+    Write-Host "  Ollama:  http://127.0.0.1:11434" -ForegroundColor DarkGray
+    Write-Host "  Mode:    Python CLI (qwen_chat.py)" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Type /help for commands, /quit to exit." -ForegroundColor DarkGray
+    Write-Host ""
 
-$chatUrl = "http://127.0.0.1:18789"
+    $env:OLLAMA_MODEL = $model
+    python $cliPath
 
-if (-not $NoBrowser) {
-    Start-Sleep -Seconds 1
-    Start-Process $chatUrl
-    Write-Ok "Browser opened -> $chatUrl"
-}
+} else {
+    # OpenClaw path (if it ever becomes available on Windows)
+    if (Test-PortOpen -Port 18789) {
+        Write-Ok "OpenClaw already running on :18789"
+    } else {
+        Write-Status "Starting OpenClaw gateway..."
+        $ocProc = Start-Process -FilePath "openclaw" -ArgumentList "gateway", "--headless" `
+            -WindowStyle Hidden -PassThru `
+            -RedirectStandardOutput "$EnclaveRoot\logs\runtime\openclaw_stdout.log" `
+            -RedirectStandardError "$EnclaveRoot\logs\runtime\openclaw_stderr.log"
 
-# --- Running -----------------------------------------------------------------
+        $ocProc.Id | Out-File "$EnclaveRoot\runtime\openclaw.pid" -Encoding UTF8 -NoNewline
 
-Write-Host ""
-Write-Host "===============================================================" -ForegroundColor Green
-Write-Host "  READY - Chat with your AI at $chatUrl" -ForegroundColor Green
-Write-Host "===============================================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "  Model:   $model" -ForegroundColor White
-Write-Host "  Ollama:  http://127.0.0.1:11434" -ForegroundColor DarkGray
-Write-Host "  Chat:    $chatUrl" -ForegroundColor White
-Write-Host ""
-Write-Host "  Press Ctrl+C or close this window to stop." -ForegroundColor DarkGray
-Write-Host ""
-
-# Keep running and show status
-try {
-    while ($true) {
-        Start-Sleep -Seconds 5
-
-        # Health check
-        $ollamaOk = Test-PortOpen -Port 11434
-        $openclawOk = Test-PortOpen -Port 18789
-
-        if (-not $ollamaOk -or -not $openclawOk) {
-            if (-not $ollamaOk) { Write-Fail "Ollama stopped unexpectedly" }
-            if (-not $openclawOk) { Write-Fail "OpenClaw stopped unexpectedly" }
-            Write-Host "  Attempting restart..." -ForegroundColor Yellow
-
-            if (-not $ollamaOk) {
-                $env:OLLAMA_HOST = "127.0.0.1:11434"
-                $env:OLLAMA_NUM_CTX = "32768"
-                Start-Process -FilePath "ollama" -ArgumentList "serve" -WindowStyle Hidden
-                Wait-ForPort -Port 11434 -Label "Ollama" | Out-Null
-            }
-            if (-not $openclawOk) {
-                Start-Process -FilePath "openclaw" -ArgumentList "gateway", "--headless" -WindowStyle Hidden
-                Wait-ForPort -Port 18789 -Label "OpenClaw" | Out-Null
-            }
-            Write-Ok "Services restarted"
+        if (Wait-ForPort -Port 18789 -Label "OpenClaw" -TimeoutSeconds 30) {
+            Write-Ok "OpenClaw started (PID: $($ocProc.Id))"
+        } else {
+            Read-Host "Press Enter to exit"
+            return
         }
     }
-} finally {
-    # Clean shutdown
-    Write-Host "`n  Shutting down..." -ForegroundColor Yellow
 
-    # Stop OpenClaw
-    $ocPidFile = "$EnclaveRoot\runtime\openclaw.pid"
-    if (Test-Path $ocPidFile) {
-        $ocPid = [int](Get-Content $ocPidFile -Raw).Trim()
-        Stop-Process -Id $ocPid -Force -ErrorAction SilentlyContinue
-        Remove-Item $ocPidFile -ErrorAction SilentlyContinue
+    $chatUrl = "http://127.0.0.1:18789"
+    if (-not $NoBrowser) {
+        Start-Sleep -Seconds 1
+        Start-Process $chatUrl
+        Write-Ok "Browser opened -> $chatUrl"
     }
 
-    # Stop Ollama
-    $ollamaPidFile = "$EnclaveRoot\runtime\ollama.pid"
-    if (Test-Path $ollamaPidFile) {
-        $ollamaPid = [int](Get-Content $ollamaPidFile -Raw).Trim()
-        Stop-Process -Id $ollamaPid -Force -ErrorAction SilentlyContinue
-        Remove-Item $ollamaPidFile -ErrorAction SilentlyContinue
-    }
+    Write-Host ""
+    Write-Host "===============================================================" -ForegroundColor Green
+    Write-Host "  READY - Chat with your AI at $chatUrl" -ForegroundColor Green
+    Write-Host "===============================================================" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  Model:   $model" -ForegroundColor White
+    Write-Host "  Ollama:  http://127.0.0.1:11434" -ForegroundColor DarkGray
+    Write-Host "  Chat:    $chatUrl" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Press Ctrl+C or close this window to stop." -ForegroundColor DarkGray
+    Write-Host ""
 
-    Write-Ok "All services stopped cleanly"
+    try {
+        while ($true) {
+            Start-Sleep -Seconds 5
+            $ollamaOk = Test-PortOpen -Port 11434
+            $openclawOk = Test-PortOpen -Port 18789
+
+            if (-not $ollamaOk -or -not $openclawOk) {
+                if (-not $ollamaOk) { Write-Fail "Ollama stopped unexpectedly" }
+                if (-not $openclawOk) { Write-Fail "OpenClaw stopped unexpectedly" }
+                Write-Host "  Attempting restart..." -ForegroundColor Yellow
+
+                if (-not $ollamaOk) {
+                    $env:OLLAMA_HOST = "127.0.0.1:11434"
+                    $env:OLLAMA_NUM_CTX = "32768"
+                    Start-Process -FilePath "ollama" -ArgumentList "serve" -WindowStyle Hidden
+                    Wait-ForPort -Port 11434 -Label "Ollama" | Out-Null
+                }
+                if (-not $openclawOk) {
+                    Start-Process -FilePath "openclaw" -ArgumentList "gateway", "--headless" -WindowStyle Hidden
+                    Wait-ForPort -Port 18789 -Label "OpenClaw" | Out-Null
+                }
+                Write-Ok "Services restarted"
+            }
+        }
+    } finally {
+        Write-Host "`n  Shutting down..." -ForegroundColor Yellow
+        $ocPidFile = "$EnclaveRoot\runtime\openclaw.pid"
+        if (Test-Path $ocPidFile) {
+            $ocPid = [int](Get-Content $ocPidFile -Raw).Trim()
+            Stop-Process -Id $ocPid -Force -ErrorAction SilentlyContinue
+            Remove-Item $ocPidFile -ErrorAction SilentlyContinue
+        }
+        $ollamaPidFile = "$EnclaveRoot\runtime\ollama.pid"
+        if (Test-Path $ollamaPidFile) {
+            $ollamaPid = [int](Get-Content $ollamaPidFile -Raw).Trim()
+            Stop-Process -Id $ollamaPid -Force -ErrorAction SilentlyContinue
+            Remove-Item $ollamaPidFile -ErrorAction SilentlyContinue
+        }
+        Write-Ok "All services stopped cleanly"
+    }
 }
 
 } catch {
