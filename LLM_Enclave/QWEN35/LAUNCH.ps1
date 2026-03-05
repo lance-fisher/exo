@@ -285,9 +285,16 @@ try {
                     }
                     Write-Ok "Model digest verified"
                 } else {
-                    # First run: store baseline digest
-                    @{ $model = $digest } | ConvertTo-Json | Out-File $digestFile -Encoding UTF8
-                    Write-Ok "Model digest baseline established"
+                    # First run or new model: merge with existing digests
+                    $existingDigests = @{}
+                    if (Test-Path $digestFile) {
+                        try { $existingDigests = Get-Content $digestFile -Raw | ConvertFrom-Json -AsHashtable } catch { $existingDigests = @{} }
+                    }
+                    $existingDigests[$model] = $digest
+                    $existingDigests | ConvertTo-Json | Out-File $digestFile -Encoding UTF8
+                    Write-Ok "Model digest baseline established for $model"
+                    Write-Host "    Digest: $digest" -ForegroundColor DarkGray
+                    Write-Host "    Verify against official Ollama model registry." -ForegroundColor DarkGray
                 }
             }
         } catch {

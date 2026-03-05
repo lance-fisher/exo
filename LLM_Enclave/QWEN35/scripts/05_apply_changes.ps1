@@ -153,11 +153,8 @@ if (-not (Test-Path $OutboxPath)) {
 }
 
 # Check 3: Target path is in allowed roots
-$targetResolved = (Resolve-Path $TargetPath -ErrorAction SilentlyContinue).Path
-if (-not $targetResolved) {
-    # Target may not exist yet (new directory)
-    $targetResolved = $TargetPath
-}
+# Normalize path (resolves .. segments even if path doesn't exist yet)
+$targetResolved = [System.IO.Path]::GetFullPath($TargetPath)
 
 $targetAllowed = $false
 foreach ($root in $policy.allowed_target_roots) {

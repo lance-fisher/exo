@@ -35,8 +35,10 @@ if not OLLAMA_HOST.startswith("http"):
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen-local")
 
 # Detect enclave root (works on both Windows and Linux)
+# cli/qwen_chat.py -> QWEN35/ (parent.parent from __file__)
 ENCLAVE_ROOT = Path(__file__).resolve().parent.parent
-PROJECTS_ROOT = ENCLAVE_ROOT.parent.parent
+# QWEN35 -> LLM_Enclave -> exo -> ProjectsHome
+PROJECTS_ROOT = ENCLAVE_ROOT.parent.parent.parent
 
 BRIDGE_ROOT = ENCLAVE_ROOT / "workspace_bridge"
 INBOX = BRIDGE_ROOT / "inbox"
@@ -69,7 +71,21 @@ current_project = None
 terminal_width = shutil.get_terminal_size((80, 24)).columns
 
 # Audit log hash chain
-_last_log_hash = "GENESIS"
+def _load_last_log_hash():
+    """Load the last hash from today's log to maintain chain across sessions."""
+    log_file = LOG_DIR / f"session_{datetime.now().strftime('%Y%m%d')}.log"
+    if log_file.exists():
+        try:
+            lines = log_file.read_text(encoding="utf-8").splitlines()
+            for line in reversed(lines):
+                m = re.search(r'hash=([a-f0-9]+)', line)
+                if m:
+                    return m.group(1)
+        except Exception:
+            pass
+    return "GENESIS"
+
+_last_log_hash = _load_last_log_hash()
 
 # Response cache (LRU, 20 entries)
 _response_cache = {}
@@ -207,7 +223,7 @@ def read_project_file(filepath):
 
     # Safety: deny sensitive file patterns
     for pattern in DENY_PATTERNS:
-        if re.search(pattern, str(target), re.IGNORECASE):
+        if re.search(pattern, target.name, re.IGNORECASE):
             return None, "Access denied: file matches security deny pattern"
 
     if not target.exists():
@@ -1034,12 +1050,13 @@ def main():
 
                 print(f"\n  \033[2m[{elapsed:.1f}s | ~{resp_tokens} tok | {tps:.0f} tok/s]\033[0m\n")
 
-                # Cache the response
+                # Cache the response (avoid duplicate keys in order list)
+                if cache_key not in _response_cache:
+                    _cache_order.append(cache_key)
+                    if len(_cache_order) > MAX_CACHE:
+                        old_key = _cache_order.pop(0)
+                        _response_cache.pop(old_key, None)
                 _response_cache[cache_key] = full_response
-                _cache_order.append(cache_key)
-                if len(_cache_order) > MAX_CACHE:
-                    old_key = _cache_order.pop(0)
-                    _response_cache.pop(old_key, None)
 
             # Update history
             conversation_history.append({"role": "user", "content": user_input})
