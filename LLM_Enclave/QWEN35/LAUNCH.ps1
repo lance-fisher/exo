@@ -60,6 +60,12 @@ Write-Host "  --------------" -ForegroundColor DarkGray
 Write-Host "  Offline coding assistant - Everything stays on your machine" -ForegroundColor DarkGray
 Write-Host ""
 
+# --- Ensure directories exist ------------------------------------------------
+
+foreach ($dir in @("$EnclaveRoot\logs\runtime", "$EnclaveRoot\runtime")) {
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+}
+
 # --- Preflight checks --------------------------------------------------------
 
 if (-not (Test-Command "ollama")) {

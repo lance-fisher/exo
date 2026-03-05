@@ -326,7 +326,7 @@ if ($SkipShortcut) {
     $shell = New-Object -ComObject WScript.Shell
     $shortcut = $shell.CreateShortcut($shortcutPath)
     $shortcut.TargetPath = "powershell.exe"
-    $shortcut.Arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launchScript`""
+    $shortcut.Arguments = "-ExecutionPolicy Bypass -NoExit -File `"$launchScript`""
     $shortcut.WorkingDirectory = $EnclaveRoot
     $shortcut.Description = "Launch your offline AI coding assistant"
     $shortcut.IconLocation = "shell32.dll,21"  # Computer icon
