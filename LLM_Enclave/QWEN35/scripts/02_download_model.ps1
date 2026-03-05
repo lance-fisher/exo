@@ -62,7 +62,7 @@ param(
 # -------------------------------------------------------------------
 # Configuration
 # -------------------------------------------------------------------
-$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35"
+$EnclaveRoot = (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
 $StagingDir = "$EnclaveRoot\models\staging"
 $VerifiedDir = "$EnclaveRoot\models\verified"
 $HashFile = "$EnclaveRoot\hashes\model_hashes.txt"

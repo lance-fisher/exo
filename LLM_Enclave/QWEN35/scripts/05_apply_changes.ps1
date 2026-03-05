@@ -51,7 +51,7 @@ param(
 # -------------------------------------------------------------------
 # Configuration
 # -------------------------------------------------------------------
-$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35"
+$EnclaveRoot = (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
 $PolicyFile = "$EnclaveRoot\policies\bridge_policy.yaml"
 $BackupsRoot = "$EnclaveRoot\backups"
 $DiffsRoot = "$EnclaveRoot\diffs"

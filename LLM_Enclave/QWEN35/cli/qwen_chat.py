@@ -29,12 +29,8 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen-local")
 
 # Detect enclave root (works on both Windows and Linux)
-if os.name == "nt":
-    ENCLAVE_ROOT = Path(r"D:\ProjectsHome\LLM_Enclave\QWEN35")
-    PROJECTS_ROOT = Path(r"D:\ProjectsHome")
-else:
-    ENCLAVE_ROOT = Path(__file__).resolve().parent.parent
-    PROJECTS_ROOT = ENCLAVE_ROOT.parent.parent
+ENCLAVE_ROOT = Path(__file__).resolve().parent.parent
+PROJECTS_ROOT = ENCLAVE_ROOT.parent.parent
 
 BRIDGE_ROOT = ENCLAVE_ROOT / "workspace_bridge"
 INBOX = BRIDGE_ROOT / "inbox"
@@ -206,6 +202,7 @@ def build_messages(user_input):
 
 def handle_command(cmd):
     """Handle slash commands. Returns True if handled, False otherwise."""
+    global current_project, OLLAMA_MODEL
     parts = cmd.strip().split(maxsplit=1)
     command = parts[0].lower()
     arg = parts[1] if len(parts) > 1 else ""
@@ -282,7 +279,6 @@ def handle_command(cmd):
 
     elif command == "/project":
         if arg:
-            global current_project
             current_project = arg
             print(f"  Active project: {current_project}")
         else:
@@ -297,7 +293,6 @@ def handle_command(cmd):
 
     elif command == "/model":
         if arg:
-            global OLLAMA_MODEL
             OLLAMA_MODEL = arg
             print(f"  Model switched to: {OLLAMA_MODEL}")
         else:
@@ -326,8 +321,8 @@ def handle_command(cmd):
 def print_help():
     """Print help text."""
     help_text = """
-  Qwen Chat — Local AI Coding Assistant
-  ══════════════════════════════════════
+  Qwen Chat - Local AI Coding Assistant
+  ======================================
 
   Just type naturally to chat with Qwen. It works like Claude Code, but offline.
 
@@ -363,15 +358,15 @@ def print_help():
 def print_banner():
     """Print startup banner."""
     print()
-    print("  ╔══════════════════════════════════════════════╗")
-    print("  ║         Qwen Chat — Local AI Assistant       ║")
-    print("  ║       Offline · Private · No Cloud · No Cost ║")
-    print("  ╚══════════════════════════════════════════════╝")
+    print("  +----------------------------------------------+")
+    print("  |         Qwen Chat - Local AI Assistant       |")
+    print("  |       Offline - Private - No Cloud - No Cost |")
+    print("  +----------------------------------------------+")
     print()
 
 
 def main():
-    global current_project
+    global current_project, OLLAMA_MODEL, OLLAMA_HOST
 
     # Parse args
     import argparse
@@ -381,7 +376,6 @@ def main():
     parser.add_argument("--host", help="Ollama host URL", default=OLLAMA_HOST)
     args = parser.parse_args()
 
-    global OLLAMA_MODEL, OLLAMA_HOST
     OLLAMA_MODEL = args.model
     OLLAMA_HOST = args.host
     current_project = args.project
@@ -396,7 +390,7 @@ def main():
             print(f"  Available models: {', '.join(models)}")
         print(f"  Make sure Ollama is running and the model is loaded.\n")
     else:
-        print(f"  Connected to {OLLAMA_HOST} — model: {OLLAMA_MODEL}")
+        print(f"  Connected to {OLLAMA_HOST} - model: {OLLAMA_MODEL}")
 
     if current_project:
         print(f"  Active project: {current_project}")

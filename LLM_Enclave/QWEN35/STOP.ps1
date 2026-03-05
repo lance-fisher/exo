@@ -5,7 +5,7 @@
 #>
 
 param(
-    [string]$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35"
+    [string]$EnclaveRoot = (Split-Path -Parent $PSCommandPath)
 )
 
 Write-Host "`n  Stopping Local AI Coder..." -ForegroundColor Yellow

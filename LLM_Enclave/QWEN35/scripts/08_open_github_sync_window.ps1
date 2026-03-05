@@ -39,7 +39,7 @@ param(
 # -------------------------------------------------------------------
 # Configuration
 # -------------------------------------------------------------------
-$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35"
+$EnclaveRoot = (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
 $AuditLog = "$EnclaveRoot\logs\audit\network_access.log"
 
 # Firewall rule names

@@ -44,7 +44,7 @@ param(
 # -------------------------------------------------------------------
 # Configuration
 # -------------------------------------------------------------------
-$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35"
+$EnclaveRoot = (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
 $InboxDir = "$EnclaveRoot\workspace_bridge\inbox"
 $PolicyFile = "$EnclaveRoot\policies\bridge_policy.yaml"
 $LogFile = "$EnclaveRoot\logs\bridge\export.log"

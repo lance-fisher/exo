@@ -24,7 +24,7 @@ param(
     [string]$Pattern = "*"
 )
 
-$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35"
+$EnclaveRoot = (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
 $InboxRoot = "$EnclaveRoot\workspace_bridge\inbox"
 $ExportScript = "$EnclaveRoot\scripts\04_export_to_bridge.ps1"
 

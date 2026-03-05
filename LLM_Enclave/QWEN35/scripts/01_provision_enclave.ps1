@@ -54,7 +54,7 @@ param(
 # -------------------------------------------------------------------
 # Configuration
 # -------------------------------------------------------------------
-$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35"
+$EnclaveRoot = (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
 $ProjectsRoot = "D:\ProjectsHome"
 $LogFile = "$EnclaveRoot\logs\provision.log"
 

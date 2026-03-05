@@ -42,7 +42,7 @@ param(
 # -------------------------------------------------------------------
 # Configuration
 # -------------------------------------------------------------------
-$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35"
+$EnclaveRoot = (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
 $OllamaPath = "$EnclaveRoot\runtime\bin\ollama.exe"
 $LogDir = "$EnclaveRoot\logs\runtime"
 $LogFile = "$EnclaveRoot\logs\provision.log"

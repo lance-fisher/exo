@@ -44,7 +44,7 @@ param(
 # -------------------------------------------------------------------
 # Configuration
 # -------------------------------------------------------------------
-$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35"
+$EnclaveRoot = (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
 $LogFile = "$EnclaveRoot\logs\provision.log"
 $OpenClawConfigDir = "$env:USERPROFILE\.openclaw"
 $OpenClawConfigPath = "$OpenClawConfigDir\openclaw.json"

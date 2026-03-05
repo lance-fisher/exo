@@ -20,7 +20,7 @@
 #>
 
 param(
-    [string]$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35",
+    [string]$EnclaveRoot = (Split-Path -Parent $PSCommandPath),
     [string]$ModelSize = "auto",  # auto, 7b, 14b, 32b
     [switch]$SkipFirewall,
     [switch]$SkipShortcut

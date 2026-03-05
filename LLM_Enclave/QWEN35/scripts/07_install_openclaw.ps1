@@ -49,7 +49,7 @@ param(
 # -------------------------------------------------------------------
 # Configuration
 # -------------------------------------------------------------------
-$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35"
+$EnclaveRoot = (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
 $ReleaseDir = "$EnclaveRoot\openclaw\release"
 $InstallDir = "$EnclaveRoot\openclaw\install"
 $ConfigDir = "$EnclaveRoot\openclaw\config"

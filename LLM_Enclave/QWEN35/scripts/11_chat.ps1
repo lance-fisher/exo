@@ -21,7 +21,7 @@ param(
     [switch]$UseOpenClaw
 )
 
-$EnclaveRoot = "D:\ProjectsHome\LLM_Enclave\QWEN35"
+$EnclaveRoot = (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
 $CliPath = "$EnclaveRoot\cli\qwen_chat.py"
 
 # Pre-flight: Check Ollama
