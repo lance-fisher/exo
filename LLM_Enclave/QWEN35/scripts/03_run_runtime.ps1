@@ -43,7 +43,11 @@ param(
 # Configuration
 # -------------------------------------------------------------------
 $EnclaveRoot = (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
-$OllamaPath = "$EnclaveRoot\runtime\bin\ollama.exe"
+# Resolve Ollama binary: prefer system PATH, fallback to enclave binary
+$OllamaPath = (Get-Command ollama -ErrorAction SilentlyContinue).Source
+if (-not $OllamaPath -or -not (Test-Path $OllamaPath)) {
+    $OllamaPath = "$EnclaveRoot\runtime\bin\ollama.exe"
+}
 $LogDir = "$EnclaveRoot\logs\runtime"
 $LogFile = "$EnclaveRoot\logs\provision.log"
 $ModelfilePath = "$EnclaveRoot\runtime\config\Modelfile"
@@ -115,7 +119,11 @@ if (Test-Path $ModelfilePath) {
 # Check 4: Firewall rules active
 if (-not $SkipFirewallCheck) {
     Write-Host "[CHECK 4] Firewall outbound block active..." -NoNewline
+    # Check for firewall rule under either naming convention
     $fwRule = Get-NetFirewallRule -DisplayName "LLM_Enclave: Block Ollama Outbound" -ErrorAction SilentlyContinue
+    if (-not $fwRule) {
+        $fwRule = Get-NetFirewallRule -DisplayName "Block Ollama Outbound" -ErrorAction SilentlyContinue
+    }
     if ($fwRule -and $fwRule.Enabled -eq "True" -and $fwRule.Action -eq "Block") {
         Write-Host " PASS" -ForegroundColor Green
     } else {

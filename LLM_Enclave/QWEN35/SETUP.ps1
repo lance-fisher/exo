@@ -31,7 +31,7 @@ Set-StrictMode -Version Latest
 
 # --- Colors & Helpers ---------------------------------------------------------
 
-function Write-Step  { param($n,$msg) Write-Host "`n[$n/7] $msg" -ForegroundColor Cyan }
+function Write-Step  { param($n,$msg) Write-Host "`n[$n/8] $msg" -ForegroundColor Cyan }
 function Write-Ok    { param($msg) Write-Host "  [OK] $msg" -ForegroundColor Green }
 function Write-Skip  { param($msg) Write-Host "  [SKIP] $msg (already done)" -ForegroundColor DarkGray }
 function Write-Warn  { param($msg) Write-Host "  [WARN] $msg" -ForegroundColor Yellow }
@@ -282,29 +282,82 @@ if ($SkipFirewall) {
                 -ErrorAction SilentlyContinue | Out-Null
             Write-Ok "Blocked Ollama outbound internet access"
         }
+
+        # DNS exfiltration mitigation: block Ollama DNS queries (port 53)
+        $dnsUdpRule = Get-NetFirewallRule -DisplayName "Block Ollama DNS UDP" -ErrorAction SilentlyContinue
+        if (-not $dnsUdpRule) {
+            New-NetFirewallRule -DisplayName "Block Ollama DNS UDP" `
+                -Direction Outbound -Action Block `
+                -Program $ollamaPath `
+                -Protocol UDP -RemotePort 53 `
+                -Description "Prevents Ollama DNS queries (anti-exfiltration)." `
+                -ErrorAction SilentlyContinue | Out-Null
+        }
+        $dnsTcpRule = Get-NetFirewallRule -DisplayName "Block Ollama DNS TCP" -ErrorAction SilentlyContinue
+        if (-not $dnsTcpRule) {
+            New-NetFirewallRule -DisplayName "Block Ollama DNS TCP" `
+                -Direction Outbound -Action Block `
+                -Program $ollamaPath `
+                -Protocol TCP -RemotePort 53 `
+                -Description "Prevents Ollama DNS-over-TCP (anti-exfiltration)." `
+                -ErrorAction SilentlyContinue | Out-Null
+        }
+        Write-Ok "Blocked Ollama DNS outbound (anti-exfiltration)"
     } else {
         Write-Warn "Could not find Ollama binary path for firewall rule"
     }
 
-    # Block OpenClaw from reaching the internet (except localhost)
+    # Block OpenClaw/Node.js from reaching the internet (except localhost)
+    # Strategy: Block-all rule + Allow-localhost rule (Allow evaluated first by Windows Firewall)
     $openclawPath = (Get-Command openclaw -ErrorAction SilentlyContinue).Source
     if ($openclawPath) {
-        # OpenClaw runs via node, so we need the node path
         $nodePath = (Get-Command node -ErrorAction SilentlyContinue).Source
-        $existingRule = Get-NetFirewallRule -DisplayName "Block OpenClaw Node Outbound" -ErrorAction SilentlyContinue
-        if ($existingRule) {
-            Write-Skip "OpenClaw/Node firewall rule already exists"
-        } else {
-            # Create a rule that blocks node.exe outbound but allows localhost
-            # We block all outbound, then allow localhost specifically
-            New-NetFirewallRule -DisplayName "Block OpenClaw Node Outbound" `
-                -Direction Outbound -Action Block `
-                -Program $nodePath `
-                -RemoteAddress "!127.0.0.1" `
-                -Description "Prevents OpenClaw (node.js) from sending data to the internet. Localhost allowed for Ollama." `
-                -ErrorAction SilentlyContinue | Out-Null
-            Write-Ok "Blocked OpenClaw outbound internet access (localhost allowed)"
+        if ($nodePath) {
+            # Allow rule for localhost (evaluated first by Windows Firewall)
+            $allowRule = Get-NetFirewallRule -DisplayName "Allow OpenClaw Node Localhost" -ErrorAction SilentlyContinue
+            if (-not $allowRule) {
+                New-NetFirewallRule -DisplayName "Allow OpenClaw Node Localhost" `
+                    -Direction Outbound -Action Allow `
+                    -Program $nodePath `
+                    -RemoteAddress "127.0.0.1" `
+                    -Description "Allows Node.js to connect to localhost (Ollama)." `
+                    -ErrorAction SilentlyContinue | Out-Null
+            }
+
+            # Block rule for everything else
+            $blockRule = Get-NetFirewallRule -DisplayName "Block OpenClaw Node Outbound" -ErrorAction SilentlyContinue
+            if (-not $blockRule) {
+                New-NetFirewallRule -DisplayName "Block OpenClaw Node Outbound" `
+                    -Direction Outbound -Action Block `
+                    -Program $nodePath `
+                    -Description "Blocks Node.js outbound for OpenClaw containment." `
+                    -ErrorAction SilentlyContinue | Out-Null
+            }
+            Write-Ok "Blocked OpenClaw outbound (localhost allowed via separate Allow rule)"
         }
+    }
+
+    # Disable WER crash dumps for privacy (prevents memory dumps containing prompts/responses)
+    try {
+        $werLocalDumps = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps"
+        if ($ollamaPath) {
+            $ollamaName = Split-Path $ollamaPath -Leaf
+            $ollamaDumpKey = "$werLocalDumps\$ollamaName"
+            if (-not (Test-Path $ollamaDumpKey)) {
+                New-Item -Path $ollamaDumpKey -Force | Out-Null
+            }
+            Set-ItemProperty -Path $ollamaDumpKey -Name "DumpCount" -Value 0 -Type DWord
+            Set-ItemProperty -Path $ollamaDumpKey -Name "DumpType" -Value 0 -Type DWord
+        }
+        $pythonDumpKey = "$werLocalDumps\python.exe"
+        if (-not (Test-Path $pythonDumpKey)) {
+            New-Item -Path $pythonDumpKey -Force | Out-Null
+        }
+        Set-ItemProperty -Path $pythonDumpKey -Name "DumpCount" -Value 0 -Type DWord
+        Set-ItemProperty -Path $pythonDumpKey -Name "DumpType" -Value 0 -Type DWord
+        Write-Ok "Disabled WER crash dumps for Ollama and Python (privacy protection)"
+    } catch {
+        Write-Warn "Could not disable WER crash dumps: $_"
     }
 
     Write-Ok "Firewall configured - AI tools cannot phone home"
@@ -312,10 +365,20 @@ if ($SkipFirewall) {
 
 # --- 7. Desktop shortcut -----------------------------------------------------
 
-Write-Step 7 "Creating desktop shortcut"
+Write-Step 7 "Establishing script integrity baseline"
+
+$integrityScript = "$EnclaveRoot\scripts\13_verify_script_integrity.ps1"
+if (Test-Path $integrityScript) {
+    & $integrityScript -EnclaveRoot $EnclaveRoot
+    Write-Ok "Script integrity hashes recorded"
+} else {
+    Write-Warn "Script integrity verifier not found at $integrityScript"
+}
+
+Write-Step 8 "Creating desktop shortcut"
 
 if ($SkipShortcut) {
-    Write-Skip "Desktop shortcut skipped (-SkipShortcut)"
+    Write-Skip "Desktop shortcut skipped  (-SkipShortcut)"
 } else {
     $launchScript = "$EnclaveRoot\LAUNCH.ps1"
     $shortcutPath = [System.IO.Path]::Combine(

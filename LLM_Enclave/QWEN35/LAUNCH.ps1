@@ -14,6 +14,7 @@
 param(
     [string]$EnclaveRoot = (Split-Path -Parent $PSCommandPath),
     [switch]$NoBrowser,
+    [switch]$SkipSecurityChecks,
     [switch]$Verbose
 )
 
@@ -50,6 +51,127 @@ function Wait-ForPort {
     return $true
 }
 
+function Invoke-SecurityPreflight {
+    <#
+    .SYNOPSIS
+        Fail-closed security checks before starting any services.
+        Returns $true if all checks pass, $false otherwise.
+    #>
+    $passed = $true
+
+    Write-Host "  --- Security Preflight ---" -ForegroundColor Cyan
+
+    # Check 1: Firewall rules active (check both naming conventions)
+    Write-Host "  [CHECK 1] Firewall outbound block..." -NoNewline
+    $fwFound = $false
+    foreach ($name in @("Block Ollama Outbound", "LLM_Enclave: Block Ollama Outbound")) {
+        $rule = Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue
+        if ($rule -and $rule.Enabled -eq "True" -and $rule.Action -eq "Block") {
+            $fwFound = $true
+            break
+        }
+    }
+    if ($fwFound) {
+        Write-Host " PASS" -ForegroundColor Green
+    } else {
+        Write-Host " FAIL" -ForegroundColor Red
+        Write-Host "    Ollama outbound firewall block is not active." -ForegroundColor Yellow
+        Write-Host "    Run SETUP.ps1 as Administrator to create firewall rules." -ForegroundColor Yellow
+        $passed = $false
+    }
+
+    # Check 2: OLLAMA_HOST is localhost-only
+    Write-Host "  [CHECK 2] Ollama bound to localhost..." -NoNewline
+    $hostVal = $env:OLLAMA_HOST
+    if (-not $hostVal) { $hostVal = "127.0.0.1:11434" }
+    if ($hostVal -match "127\.0\.0\.1" -or $hostVal -match "localhost") {
+        Write-Host " PASS" -ForegroundColor Green
+    } else {
+        Write-Host " FAIL (bound to $hostVal)" -ForegroundColor Red
+        $passed = $false
+    }
+
+    # Check 3: Bridge directories exist
+    Write-Host "  [CHECK 3] Bridge directories..." -NoNewline
+    $bridgeOk = $true
+    foreach ($sub in @("inbox", "outbox", "scratch")) {
+        if (-not (Test-Path "$EnclaveRoot\workspace_bridge\$sub")) {
+            $bridgeOk = $false
+        }
+    }
+    if ($bridgeOk) {
+        Write-Host " PASS" -ForegroundColor Green
+    } else {
+        Write-Host " FAIL" -ForegroundColor Red
+        Write-Host "    Bridge directories missing. Run SETUP.ps1 first." -ForegroundColor Yellow
+        $passed = $false
+    }
+
+    # Check 4: Script integrity (if hashes exist)
+    Write-Host "  [CHECK 4] Script integrity..." -NoNewline
+    $hashFile = "$EnclaveRoot\runtime\config\script_hashes.json"
+    if (Test-Path $hashFile) {
+        $verifyScript = "$EnclaveRoot\scripts\13_verify_script_integrity.ps1"
+        if (Test-Path $verifyScript) {
+            $result = & $verifyScript -EnclaveRoot $EnclaveRoot -Verify -Quiet 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host " PASS" -ForegroundColor Green
+            } else {
+                Write-Host " FAIL" -ForegroundColor Red
+                Write-Host "    Script files have been modified since last setup." -ForegroundColor Yellow
+                Write-Host "    $result" -ForegroundColor Yellow
+                $passed = $false
+            }
+        } else {
+            Write-Host " SKIP (verifier not found)" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host " SKIP (no baseline yet)" -ForegroundColor DarkGray
+    }
+
+    Write-Host ""
+    return $passed
+}
+
+function Track-PolicyChanges {
+    <# Track changes to policy files and log them to the changelog. #>
+    $policiesDir = "$EnclaveRoot\policies"
+    $hashFile = "$EnclaveRoot\runtime\config\policy_hashes.json"
+    if (-not (Test-Path $policiesDir)) { return }
+
+    $policyFiles = Get-ChildItem $policiesDir -Filter "*.yaml" -ErrorAction SilentlyContinue
+    if (-not $policyFiles) { return }
+
+    $storedHashes = @{}
+    if (Test-Path $hashFile) {
+        try { $storedHashes = Get-Content $hashFile -Raw | ConvertFrom-Json -ErrorAction Stop } catch {}
+    }
+
+    $currentHashes = @{}
+    $changed = @()
+    foreach ($f in $policyFiles) {
+        $hash = (Get-FileHash $f.FullName -Algorithm SHA256).Hash
+        $currentHashes[$f.Name] = $hash
+        if ($storedHashes.PSObject.Properties.Name -contains $f.Name) {
+            if ($storedHashes.$($f.Name) -ne $hash) {
+                $changed += $f.Name
+            }
+        }
+    }
+
+    if ($changed.Count -gt 0) {
+        $changelogPath = "$EnclaveRoot\docs\changelog.md"
+        $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+        $entry = "`n## $timestamp - Policy Change`n- Changed: $($changed -join ', ')`n"
+        if (Test-Path $changelogPath) {
+            Add-Content -Path $changelogPath -Value $entry
+        }
+        Write-Status "Policy changes detected and logged: $($changed -join ', ')"
+    }
+
+    $currentHashes | ConvertTo-Json | Set-Content -Path $hashFile -Encoding UTF8
+}
+
 # --- Banner -------------------------------------------------------------------
 
 Write-Host ""
@@ -73,6 +195,23 @@ if (-not (Test-Command "ollama")) {
     Read-Host "Press Enter to exit"
     return
 }
+
+# --- Security preflight ---------------------------------------------------
+
+if ($SkipSecurityChecks) {
+    Write-Host "  [WARN] Security checks SKIPPED by user override" -ForegroundColor Yellow
+} else {
+    $preflightOk = Invoke-SecurityPreflight
+    if (-not $preflightOk) {
+        Write-Fail "Security preflight FAILED. Ollama will NOT start."
+        Write-Host "  Use -SkipSecurityChecks to override (NOT recommended)." -ForegroundColor Yellow
+        Read-Host "Press Enter to exit"
+        return
+    }
+}
+
+# Track policy file changes
+Track-PolicyChanges
 
 # OpenClaw disabled — its npm binary is not a valid Win32 application on Windows.
 # Using Python CLI (qwen_chat.py) instead.
@@ -124,6 +263,37 @@ try {
     $body = @{ model = $model; prompt = "hi"; stream = $false; options = @{ num_predict = 1 } } | ConvertTo-Json
     $null = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/generate" -Method POST -Body $body -ContentType "application/json" -TimeoutSec 120
     Write-Ok "Model $model loaded and ready"
+
+    # Verify model digest integrity
+    if (-not $SkipSecurityChecks) {
+        try {
+            $showBody = @{ name = $model } | ConvertTo-Json
+            $modelInfo = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/show" -Method POST -Body $showBody -ContentType "application/json" -TimeoutSec 10
+            $digest = $modelInfo.digest
+            if ($digest) {
+                $digestFile = "$EnclaveRoot\runtime\config\model_digests.json"
+                if (Test-Path $digestFile) {
+                    $storedDigests = Get-Content $digestFile -Raw | ConvertFrom-Json
+                    $storedHash = $storedDigests.$model
+                    if ($storedHash -and $storedHash -ne $digest) {
+                        Write-Fail "MODEL INTEGRITY FAILURE: digest mismatch for $model"
+                        Write-Host "    Expected: $storedHash" -ForegroundColor Red
+                        Write-Host "    Got:      $digest" -ForegroundColor Red
+                        Write-Host "    The model may have been tampered with." -ForegroundColor Red
+                        Read-Host "Press Enter to exit"
+                        return
+                    }
+                    Write-Ok "Model digest verified"
+                } else {
+                    # First run: store baseline digest
+                    @{ $model = $digest } | ConvertTo-Json | Out-File $digestFile -Encoding UTF8
+                    Write-Ok "Model digest baseline established"
+                }
+            }
+        } catch {
+            Write-Status "Model digest check skipped (API unavailable)"
+        }
+    }
 } catch {
     Write-Status "Model pre-load timed out - it will load on first chat message"
 }

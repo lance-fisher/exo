@@ -343,6 +343,7 @@ New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
 
 $applied = 0
 $newFiles = 0
+$backupManifest = @{}
 
 foreach ($f in $filesToApply) {
     $targetDir = Split-Path $f.Target -Parent
@@ -356,8 +357,11 @@ foreach ($f in $filesToApply) {
             New-Item -ItemType Directory -Path $backupFileDir -Force | Out-Null
         }
         Copy-Item -Path $f.Target -Destination $backupFilePath
+        # Record backup hash for integrity verification
+        $backupHash = (Get-FileHash -Path $backupFilePath -Algorithm SHA256).Hash
+        $backupManifest[$backupRelPath] = $backupHash
         Write-Host "  BACKUP: $($f.Target) -> $backupFilePath" -ForegroundColor DarkGray
-        Write-Log "BACKUP_CREATED: $($f.Target) -> $backupFilePath"
+        Write-Log "BACKUP_CREATED: $($f.Target) -> $backupFilePath (SHA256: $backupHash)"
     }
 
     # Create target directory if needed
@@ -384,6 +388,14 @@ foreach ($f in $filesToApply) {
 Write-Host "`n========================================" -ForegroundColor Green
 Write-Host " APPLY COMPLETE" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
+# Save backup manifest with SHA256 hashes for integrity verification
+if ($backupManifest.Count -gt 0) {
+    $manifestPath = Join-Path $backupDir "backup_manifest.json"
+    $backupManifest | ConvertTo-Json -Depth 3 | Set-Content -Path $manifestPath -Encoding UTF8
+    Write-Host "Backup manifest: $manifestPath ($($backupManifest.Count) hashes)" -ForegroundColor DarkGray
+    Write-Log "Backup manifest created: $manifestPath"
+}
+
 Write-Host "Updated files: $applied"
 Write-Host "New files:     $newFiles"
 Write-Host "Backup dir:    $backupDir"

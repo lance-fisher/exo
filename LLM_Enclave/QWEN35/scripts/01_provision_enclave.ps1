@@ -299,21 +299,45 @@ foreach ($kv in $envVars.GetEnumerator()) {
 if (-not $SkipFirewall) {
     Write-Host "`n--- Step 4: Creating Firewall Rules (REQUIRES ADMIN) ---" -ForegroundColor Cyan
 
+    # Resolve Ollama binary path dynamically (system PATH or enclave fallback)
+    $ollamaExe = (Get-Command ollama -ErrorAction SilentlyContinue).Source
+    if (-not $ollamaExe -or -not (Test-Path $ollamaExe)) {
+        $ollamaExe = "$EnclaveRoot\runtime\bin\ollama.exe"
+        Write-Log "Using enclave Ollama binary: $ollamaExe" "WARN"
+    } else {
+        Write-Log "Using system Ollama binary: $ollamaExe"
+    }
+
+    # Resolve Python binary path dynamically
+    $pythonExe = (Get-Command python -ErrorAction SilentlyContinue).Source
+    if (-not $pythonExe) {
+        $pythonExe = "$EnclaveRoot\runtime\venv\Scripts\python.exe"
+    }
+
     $firewallRules = @(
         @{
             DisplayName = "LLM_Enclave: Block Ollama Outbound"
-            Program     = "$EnclaveRoot\runtime\bin\ollama.exe"
+            Program     = $ollamaExe
             Description = "Blocks all outbound network access for Ollama inference runtime."
         },
         @{
-            DisplayName = "LLM_Enclave: Block Enclave Python Outbound"
-            Program     = "$EnclaveRoot\runtime\venv\Scripts\python.exe"
-            Description = "Blocks outbound for Python in the enclave venv."
+            DisplayName = "LLM_Enclave: Block Ollama DNS UDP"
+            Program     = $ollamaExe
+            Protocol    = "UDP"
+            RemotePort  = "53"
+            Description = "Blocks Ollama DNS queries to prevent data exfiltration."
         },
         @{
-            DisplayName = "LLM_Enclave: Block OpenClaw Python Outbound"
-            Program     = "$EnclaveRoot\openclaw\install\venv\Scripts\python.exe"
-            Description = "Blocks outbound for OpenClaw Python process."
+            DisplayName = "LLM_Enclave: Block Ollama DNS TCP"
+            Program     = $ollamaExe
+            Protocol    = "TCP"
+            RemotePort  = "53"
+            Description = "Blocks Ollama DNS-over-TCP to prevent data exfiltration."
+        },
+        @{
+            DisplayName = "LLM_Enclave: Block Enclave Python Outbound"
+            Program     = $pythonExe
+            Description = "Blocks outbound for Python process."
         }
     )
 
@@ -322,23 +346,29 @@ if (-not $SkipFirewall) {
         if (-not $existing) {
             if (-not $DryRun) {
                 try {
-                    New-NetFirewallRule `
-                        -DisplayName $rule.DisplayName `
-                        -Direction Outbound `
-                        -Action Block `
-                        -Program $rule.Program `
-                        -Profile Any `
-                        -Enabled True `
-                        -Description $rule.Description | Out-Null
+                    $fwParams = @{
+                        DisplayName = $rule.DisplayName
+                        Direction   = "Outbound"
+                        Action      = "Block"
+                        Program     = $rule.Program
+                        Profile     = "Any"
+                        Enabled     = "True"
+                        Description = $rule.Description
+                    }
+                    # Add protocol/port for DNS-specific rules
+                    if ($rule.Protocol) { $fwParams.Protocol = $rule.Protocol }
+                    if ($rule.RemotePort) { $fwParams.RemotePort = $rule.RemotePort }
+
+                    New-NetFirewallRule @fwParams | Out-Null
                     Write-Host "Created firewall rule: $($rule.DisplayName)" -ForegroundColor Green
-                    Write-Log "Created firewall rule: $($rule.DisplayName)"
+                    Write-Log "Created firewall rule: $($rule.DisplayName) -> $($rule.Program)"
                 } catch {
                     Write-Host "FAILED to create firewall rule: $($rule.DisplayName)" -ForegroundColor Red
                     Write-Host "  Error: $_" -ForegroundColor Red
                     Write-Log "FAILED to create firewall rule: $($rule.DisplayName) - $_" "ERROR"
                 }
             } else {
-                Write-Host "[DRY RUN] Would create: $($rule.DisplayName)"
+                Write-Host "[DRY RUN] Would create: $($rule.DisplayName) -> $($rule.Program)"
             }
         } else {
             Write-Host "Exists: $($rule.DisplayName)" -ForegroundColor DarkGray
@@ -407,6 +437,34 @@ if ($CreateRestrictedUser) {
                 Set-Acl -Path $EnclaveRoot -AclObject $acl
                 Write-Host "Set NTFS permissions on $EnclaveRoot" -ForegroundColor Green
                 Write-Log "Set NTFS ACLs on enclave for LLM_Enclave_User"
+
+                # Set inbox to read-only for enclave user (AI cannot modify its own inputs)
+                $inboxPath = "$EnclaveRoot\workspace_bridge\inbox"
+                if (Test-Path $inboxPath) {
+                    $inboxAcl = Get-Acl $inboxPath
+                    $readRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                        "LLM_Enclave_User", "Read,ListDirectory",
+                        "ContainerInherit,ObjectInherit", "None", "Allow"
+                    )
+                    $inboxAcl.AddAccessRule($readRule)
+                    Set-Acl -Path $inboxPath -AclObject $inboxAcl
+                    Write-Host "Set inbox to read-only for LLM_Enclave_User" -ForegroundColor Green
+                    Write-Log "Set inbox ACL: read-only for LLM_Enclave_User"
+                }
+
+                # Set outbox to modify for enclave user
+                $outboxPath = "$EnclaveRoot\workspace_bridge\outbox"
+                if (Test-Path $outboxPath) {
+                    $outboxAcl = Get-Acl $outboxPath
+                    $modifyRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                        "LLM_Enclave_User", "Modify",
+                        "ContainerInherit,ObjectInherit", "None", "Allow"
+                    )
+                    $outboxAcl.AddAccessRule($modifyRule)
+                    Set-Acl -Path $outboxPath -AclObject $outboxAcl
+                    Write-Host "Set outbox to modify for LLM_Enclave_User" -ForegroundColor Green
+                    Write-Log "Set outbox ACL: modify for LLM_Enclave_User"
+                }
 
             } catch {
                 Write-Host "FAILED to create user: $_" -ForegroundColor Red
