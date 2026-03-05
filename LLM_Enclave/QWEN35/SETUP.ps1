@@ -15,7 +15,7 @@
 .NOTES
     - Requires Windows 10/11 with admin rights
     - Requires ~20GB disk space (model + tools)
-    - Internet needed for setup only — offline after that
+    - Internet needed for setup only - offline after that
     - Nothing touches your project files without explicit approval
 #>
 
@@ -29,17 +29,17 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-# ─── Colors & Helpers ─────────────────────────────────────────────────────────
+# --- Colors & Helpers ---------------------------------------------------------
 
 function Write-Step  { param($n,$msg) Write-Host "`n[$n/7] $msg" -ForegroundColor Cyan }
-function Write-Ok    { param($msg) Write-Host "  ✓ $msg" -ForegroundColor Green }
-function Write-Skip  { param($msg) Write-Host "  → $msg (already done)" -ForegroundColor DarkGray }
-function Write-Warn  { param($msg) Write-Host "  ! $msg" -ForegroundColor Yellow }
-function Write-Fail  { param($msg) Write-Host "  ✗ $msg" -ForegroundColor Red }
+function Write-Ok    { param($msg) Write-Host "  [OK] $msg" -ForegroundColor Green }
+function Write-Skip  { param($msg) Write-Host "  [SKIP] $msg (already done)" -ForegroundColor DarkGray }
+function Write-Warn  { param($msg) Write-Host "  [WARN] $msg" -ForegroundColor Yellow }
+function Write-Fail  { param($msg) Write-Host "  [FAIL] $msg" -ForegroundColor Red }
 
 function Test-Command { param($cmd) $null -ne (Get-Command $cmd -ErrorAction SilentlyContinue) }
 
-# ─── 1. Create directory structure ────────────────────────────────────────────
+# --- 1. Create directory structure --------------------------------------------
 
 Write-Step 1 "Creating enclave directory structure"
 
@@ -66,7 +66,7 @@ foreach ($d in $dirs) {
 }
 Write-Ok "Directory structure ready"
 
-# ─── 2. Install Ollama ───────────────────────────────────────────────────────
+# --- 2. Install Ollama -------------------------------------------------------
 
 Write-Step 2 "Installing Ollama"
 
@@ -92,7 +92,7 @@ if (Test-Command "ollama") {
     }
 }
 
-# ─── 3. Auto-detect hardware & pull model ────────────────────────────────────
+# --- 3. Auto-detect hardware & pull model ------------------------------------
 
 Write-Step 3 "Selecting and downloading coding model"
 
@@ -111,13 +111,13 @@ $vram = Get-ApproxVRAM
 if ($ModelSize -eq "auto") {
     if ($vram -ge 24) {
         $model = "qwen2.5-coder:32b"
-        Write-Ok "Detected ${vram}GB VRAM → using qwen2.5-coder:32b (best quality)"
+        Write-Ok "Detected ${vram}GB VRAM -> using qwen2.5-coder:32b (best quality)"
     } elseif ($vram -ge 10) {
         $model = "qwen2.5-coder:14b"
-        Write-Ok "Detected ${vram}GB VRAM → using qwen2.5-coder:14b (great quality)"
+        Write-Ok "Detected ${vram}GB VRAM -> using qwen2.5-coder:14b (great quality)"
     } else {
         $model = "qwen2.5-coder:7b"
-        Write-Ok "Detected ${vram}GB VRAM → using qwen2.5-coder:7b (good quality)"
+        Write-Ok "Detected ${vram}GB VRAM -> using qwen2.5-coder:7b (good quality)"
     }
 } else {
     $model = "qwen2.5-coder:$ModelSize"
@@ -142,7 +142,7 @@ if ($existingModels -match [regex]::Escape($model)) {
 $model | Out-File "$EnclaveRoot\runtime\config\active_model.txt" -Encoding UTF8 -NoNewline
 Write-Ok "Model selection saved"
 
-# ─── 4. Install Node.js if needed ────────────────────────────────────────────
+# --- 4. Install Node.js if needed --------------------------------------------
 
 Write-Step 4 "Checking Node.js"
 
@@ -175,7 +175,7 @@ if (-not $nodeOk) {
     }
 }
 
-# ─── 5. Install OpenClaw ─────────────────────────────────────────────────────
+# --- 5. Install OpenClaw -----------------------------------------------------
 
 Write-Step 5 "Installing OpenClaw"
 
@@ -255,7 +255,7 @@ $openclawConfig | Out-File "$configDir\config.yaml" -Encoding UTF8
 $openclawConfig | Out-File "$EnclaveRoot\openclaw\config\config.yaml" -Encoding UTF8
 Write-Ok "OpenClaw configured for local-only Ollama"
 
-# ─── 6. Firewall rules ───────────────────────────────────────────────────────
+# --- 6. Firewall rules -------------------------------------------------------
 
 Write-Step 6 "Configuring firewall (blocking AI outbound traffic)"
 
@@ -301,10 +301,10 @@ if ($SkipFirewall) {
         }
     }
 
-    Write-Ok "Firewall configured — AI tools cannot phone home"
+    Write-Ok "Firewall configured - AI tools cannot phone home"
 }
 
-# ─── 7. Desktop shortcut ─────────────────────────────────────────────────────
+# --- 7. Desktop shortcut -----------------------------------------------------
 
 Write-Step 7 "Creating desktop shortcut"
 
@@ -329,20 +329,22 @@ if ($SkipShortcut) {
     Write-Ok "Desktop shortcut created: 'Local AI Coder'"
 }
 
-# ─── Done ─────────────────────────────────────────────────────────────────────
+# --- Done ---------------------------------------------------------------------
 
 Write-Host "`n" -NoNewline
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "===============================================================" -ForegroundColor Green
 Write-Host "  SETUP COMPLETE" -ForegroundColor Green
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "===============================================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Model:     $model" -ForegroundColor White
 Write-Host "  Chat UI:   http://127.0.0.1:18789" -ForegroundColor White
-Write-Host "  Firewall:  $(if($SkipFirewall){'Skipped'}else{'Active — AI tools blocked from internet'})" -ForegroundColor White
-Write-Host "  Shortcut:  $(if($SkipShortcut){'Skipped'}else{'Desktop → Local AI Coder'})" -ForegroundColor White
+$fwStatus = if($SkipFirewall){'Skipped'}else{'Active - AI tools blocked from internet'}
+$scStatus = if($SkipShortcut){'Skipped'}else{'Desktop shortcut: Local AI Coder'}
+Write-Host "  Firewall:  $fwStatus" -ForegroundColor White
+Write-Host "  Shortcut:  $scStatus" -ForegroundColor White
 Write-Host ""
-Write-Host "  To start: Double-click 'Local AI Coder' on your desktop" -ForegroundColor Cyan
+Write-Host "  To start: Double-click Local AI Coder on your desktop" -ForegroundColor Cyan
 Write-Host "       or:  Run $EnclaveRoot\LAUNCH.ps1" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Everything runs locally. Nothing leaves your computer." -ForegroundColor DarkGray
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "===============================================================" -ForegroundColor Green

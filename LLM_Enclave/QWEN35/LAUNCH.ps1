@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Starts Ollama + OpenClaw and opens the chat UI in your browser.
-    Everything runs locally — no internet needed after setup.
+    Everything runs locally - no internet needed after setup.
 
 .NOTES
     Run SETUP.ps1 first if you haven't already.
@@ -19,11 +19,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
+# --- Helpers ------------------------------------------------------------------
 
 function Write-Status { param($msg) Write-Host "  $msg" -ForegroundColor Cyan }
-function Write-Ok     { param($msg) Write-Host "  ✓ $msg" -ForegroundColor Green }
-function Write-Fail   { param($msg) Write-Host "  ✗ $msg" -ForegroundColor Red }
+function Write-Ok     { param($msg) Write-Host "  [OK] $msg" -ForegroundColor Green }
+function Write-Fail   { param($msg) Write-Host "  [FAIL] $msg" -ForegroundColor Red }
 function Test-Command { param($cmd) $null -ne (Get-Command $cmd -ErrorAction SilentlyContinue) }
 
 function Test-PortOpen {
@@ -52,15 +52,15 @@ function Wait-ForPort {
     return $true
 }
 
-# ─── Banner ───────────────────────────────────────────────────────────────────
+# --- Banner -------------------------------------------------------------------
 
 Write-Host ""
 Write-Host "  Local AI Coder" -ForegroundColor Green
-Write-Host "  ──────────────" -ForegroundColor DarkGray
-Write-Host "  Offline coding assistant · Everything stays on your machine" -ForegroundColor DarkGray
+Write-Host "  --------------" -ForegroundColor DarkGray
+Write-Host "  Offline coding assistant - Everything stays on your machine" -ForegroundColor DarkGray
 Write-Host ""
 
-# ─── Preflight checks ────────────────────────────────────────────────────────
+# --- Preflight checks --------------------------------------------------------
 
 if (-not (Test-Command "ollama")) {
     Write-Fail "Ollama not found. Run SETUP.ps1 first."
@@ -83,7 +83,7 @@ if (Test-Path $modelFile) {
     Write-Status "No saved model preference, defaulting to $model"
 }
 
-# ─── Start Ollama ─────────────────────────────────────────────────────────────
+# --- Start Ollama -------------------------------------------------------------
 
 if (Test-PortOpen -Port 11434) {
     Write-Ok "Ollama already running on :11434"
@@ -120,10 +120,10 @@ try {
     $null = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/generate" -Method POST -Body $body -ContentType "application/json" -TimeoutSec 120
     Write-Ok "Model $model loaded and ready"
 } catch {
-    Write-Status "Model pre-load timed out — it will load on first chat message"
+    Write-Status "Model pre-load timed out - it will load on first chat message"
 }
 
-# ─── Start OpenClaw ──────────────────────────────────────────────────────────
+# --- Start OpenClaw ----------------------------------------------------------
 
 if (Test-PortOpen -Port 18789) {
     Write-Ok "OpenClaw already running on :18789"
@@ -146,22 +146,22 @@ if (Test-PortOpen -Port 18789) {
     }
 }
 
-# ─── Open browser ────────────────────────────────────────────────────────────
+# --- Open browser ------------------------------------------------------------
 
 $chatUrl = "http://127.0.0.1:18789"
 
 if (-not $NoBrowser) {
     Start-Sleep -Seconds 1
     Start-Process $chatUrl
-    Write-Ok "Browser opened → $chatUrl"
+    Write-Ok "Browser opened -> $chatUrl"
 }
 
-# ─── Running ─────────────────────────────────────────────────────────────────
+# --- Running -----------------------------------------------------------------
 
 Write-Host ""
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Green
-Write-Host "  READY — Chat with your AI at $chatUrl" -ForegroundColor Green
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "===============================================================" -ForegroundColor Green
+Write-Host "  READY - Chat with your AI at $chatUrl" -ForegroundColor Green
+Write-Host "===============================================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Model:   $model" -ForegroundColor White
 Write-Host "  Ollama:  http://127.0.0.1:11434" -ForegroundColor DarkGray
