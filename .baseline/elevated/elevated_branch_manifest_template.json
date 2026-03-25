@@ -1,0 +1,33 @@
+{
+  "branch_name": "{{BRANCH_NAME}}",
+  "branch_type": "elevated",
+  "created": "{{CREATED_DATE}}",
+  "purpose": "{{PURPOSE}}",
+  "risk_tier": 4,
+  "parent_baseline": "exo",
+  "parent_branch": "main",
+  "parent_commit": "{{PARENT_COMMIT}}",
+  "has_local_overrides": true,
+  "elevated": true,
+  "authority": {
+    "system_access": "{{SYSTEM_ACCESS_DESCRIPTION}}",
+    "external_integrations": [],
+    "autonomous_behavior": true,
+    "privileged_operations": [],
+    "impact_scope": "{{IMPACT_SCOPE}}"
+  },
+  "safeguards": {
+    "requires_review": true,
+    "requires_approval": true,
+    "monitoring_required": true,
+    "rollback_plan": "{{ROLLBACK_PLAN}}"
+  },
+  "standalone_repo_intent": false,
+  "lifecycle": "active",
+  "warnings": [
+    "This is an elevated-risk branch",
+    "Requires explicit approval before merge",
+    "Must not contaminate the master baseline"
+  ],
+  "additional_constraints": []
+}

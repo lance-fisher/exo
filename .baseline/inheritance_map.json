@@ -1,0 +1,155 @@
+{
+  "version": "1.0.0",
+  "baseline": "exo",
+  "description": "Defines how baseline files should be inherited by derivative branches",
+  "inheritance_modes": {
+    "direct_copy": "Files inherited via git branching - present in every branch",
+    "central_reference": "Files that should be read from baseline, not modified in branches",
+    "template_instantiation": "Files generated from templates during branch creation",
+    "optional_import": "Files included only when relevant to the branch purpose",
+    "prohibited": "Files that must never automatically flow into branches"
+  },
+  "files": {
+    "exo/": {
+      "mode": "direct_copy",
+      "description": "Core source code",
+      "applies_to": ["all"]
+    },
+    "examples/": {
+      "mode": "direct_copy",
+      "description": "Example code and demos",
+      "applies_to": ["all"]
+    },
+    "tinychat/": {
+      "mode": "direct_copy",
+      "description": "Chat interface",
+      "applies_to": ["all"]
+    },
+    "main.py": {
+      "mode": "direct_copy",
+      "description": "Application entry point",
+      "applies_to": ["all"]
+    },
+    "setup.py": {
+      "mode": "direct_copy",
+      "description": "Package setup",
+      "applies_to": ["all"]
+    },
+    "pyproject.toml": {
+      "mode": "direct_copy",
+      "description": "Tool configuration (black, isort, pylint, autopep8)",
+      "applies_to": ["all"]
+    },
+    "ruff.toml": {
+      "mode": "direct_copy",
+      "description": "Ruff linter configuration",
+      "applies_to": ["all"]
+    },
+    ".pylintrc": {
+      "mode": "direct_copy",
+      "description": "Pylint configuration",
+      "applies_to": ["all"]
+    },
+    ".gitignore": {
+      "mode": "direct_copy",
+      "description": "Git ignore rules",
+      "applies_to": ["all"]
+    },
+    "LICENSE": {
+      "mode": "direct_copy",
+      "description": "GPLv3 license",
+      "applies_to": ["all"]
+    },
+    "README.md": {
+      "mode": "direct_copy",
+      "description": "Project documentation",
+      "applies_to": ["all"]
+    },
+    "docs/": {
+      "mode": "direct_copy",
+      "description": "Documentation assets (logos, diagrams)",
+      "applies_to": ["all"]
+    },
+    ".circleci/": {
+      "mode": "optional_import",
+      "description": "CI/CD configuration",
+      "applies_to": ["feature", "fix", "auto"],
+      "note": "Only include if branch modifies CI pipeline"
+    },
+    "extra/": {
+      "mode": "optional_import",
+      "description": "Extra utilities (HuggingFace downloader)",
+      "applies_to": ["feature", "experiment"]
+    },
+    "format.py": {
+      "mode": "direct_copy",
+      "description": "Code formatter script",
+      "applies_to": ["all"]
+    },
+    "lint.sh": {
+      "mode": "direct_copy",
+      "description": "Lint runner script",
+      "applies_to": ["all"]
+    },
+    "install.sh": {
+      "mode": "direct_copy",
+      "description": "Install script",
+      "applies_to": ["all"]
+    },
+    ".baseline/BASELINE_SYSTEM.md": {
+      "mode": "central_reference",
+      "description": "Master baseline definition - read only",
+      "applies_to": ["all"]
+    },
+    ".baseline/BRANCHING_POLICY.md": {
+      "mode": "central_reference",
+      "description": "Branching rules - read only",
+      "applies_to": ["all"]
+    },
+    ".baseline/RISK_TIER_MODEL.md": {
+      "mode": "central_reference",
+      "description": "Risk tier definitions - read only",
+      "applies_to": ["all"]
+    },
+    ".baseline/SYSTEM_INHERITANCE_RULES.md": {
+      "mode": "central_reference",
+      "description": "Inheritance logic - read only",
+      "applies_to": ["all"]
+    },
+    ".baseline/inheritance_map.json": {
+      "mode": "central_reference",
+      "description": "This file - machine-readable inheritance map",
+      "applies_to": ["all"]
+    },
+    ".baseline/baseline_manifest.json": {
+      "mode": "central_reference",
+      "description": "Baseline inventory - read only",
+      "applies_to": ["all"]
+    },
+    ".baseline/templates/": {
+      "mode": "template_instantiation",
+      "description": "Template source for branch-local files",
+      "applies_to": ["all"]
+    },
+    ".baseline/elevated/": {
+      "mode": "prohibited",
+      "description": "Elevated-risk zone - never auto-inherited",
+      "applies_to": []
+    },
+    ".baseline/branches/": {
+      "mode": "prohibited",
+      "description": "Branch registry - baseline-only",
+      "applies_to": []
+    },
+    ".baseline/scripts/": {
+      "mode": "optional_import",
+      "description": "Branch creation and management scripts",
+      "applies_to": ["all"]
+    },
+    "CLAUDE.md": {
+      "mode": "central_reference",
+      "description": "Claude Code session entrypoint",
+      "applies_to": ["all"]
+    }
+  }
+}

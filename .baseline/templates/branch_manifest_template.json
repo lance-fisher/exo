@@ -1,0 +1,16 @@
+{
+  "branch_name": "{{BRANCH_NAME}}",
+  "branch_type": "{{BRANCH_TYPE}}",
+  "created": "{{CREATED_DATE}}",
+  "purpose": "{{PURPOSE}}",
+  "risk_tier": 1,
+  "parent_baseline": "exo",
+  "parent_branch": "main",
+  "parent_commit": "{{PARENT_COMMIT}}",
+  "has_local_overrides": false,
+  "external_integrations": [],
+  "autonomous_behavior": false,
+  "standalone_repo_intent": false,
+  "lifecycle": "active",
+  "additional_constraints": []
+}

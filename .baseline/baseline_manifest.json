@@ -1,0 +1,106 @@
+{
+  "version": "1.0.0",
+  "baseline_name": "exo",
+  "baseline_type": "protected_master",
+  "description": "exo - Run your own AI cluster at home with everyday devices",
+  "license": "GPL-3.0",
+  "status": "active",
+  "created": "2026-03-25",
+  "inventory": {
+    "source_code": {
+      "description": "Core application source",
+      "paths": ["exo/", "main.py"],
+      "classification": "core",
+      "reuse": "direct_copy"
+    },
+    "configuration": {
+      "description": "Project and tool configuration",
+      "paths": ["pyproject.toml", "setup.py", "ruff.toml", ".pylintrc", ".gitignore"],
+      "classification": "global_rules",
+      "reuse": "direct_copy"
+    },
+    "ci_cd": {
+      "description": "Continuous integration configuration",
+      "paths": [".circleci/config.yml"],
+      "classification": "infrastructure",
+      "reuse": "optional_import"
+    },
+    "documentation": {
+      "description": "Project documentation and assets",
+      "paths": ["README.md", "docs/", "LICENSE"],
+      "classification": "documentation",
+      "reuse": "direct_copy"
+    },
+    "examples": {
+      "description": "Example code and demos",
+      "paths": ["examples/"],
+      "classification": "reusable_seeds",
+      "reuse": "direct_copy"
+    },
+    "utilities": {
+      "description": "Development utilities and scripts",
+      "paths": ["format.py", "lint.sh", "install.sh", "extra/"],
+      "classification": "workflow",
+      "reuse": "direct_copy"
+    },
+    "chat_interface": {
+      "description": "TinyChat web interface",
+      "paths": ["tinychat/"],
+      "classification": "core",
+      "reuse": "direct_copy"
+    },
+    "baseline_governance": {
+      "description": "Branch-first architecture framework",
+      "paths": [".baseline/"],
+      "classification": "governance",
+      "reuse": "central_reference"
+    },
+    "session_entrypoint": {
+      "description": "Claude Code session guidance",
+      "paths": ["CLAUDE.md"],
+      "classification": "governance",
+      "reuse": "central_reference"
+    }
+  },
+  "source_modules": {
+    "api": {
+      "path": "exo/api/",
+      "description": "API server (ChatGPT-compatible)"
+    },
+    "download": {
+      "path": "exo/download/",
+      "description": "Model download management"
+    },
+    "inference": {
+      "path": "exo/inference/",
+      "description": "Inference engines (MLX, tinygrad)"
+    },
+    "networking": {
+      "path": "exo/networking/",
+      "description": "Node discovery and communication (gRPC, UDP)"
+    },
+    "orchestration": {
+      "path": "exo/orchestration/",
+      "description": "Distributed orchestration"
+    },
+    "topology": {
+      "path": "exo/topology/",
+      "description": "Network topology and partitioning"
+    },
+    "stats": {
+      "path": "exo/stats/",
+      "description": "Metrics and statistics"
+    },
+    "viz": {
+      "path": "exo/viz/",
+      "description": "Visualization"
+    }
+  },
+  "coding_standards": {
+    "formatter": "black (line-length=200, indent-size=2)",
+    "linter": "ruff + pylint",
+    "import_sorter": "isort (profile=black)",
+    "indent": "2 spaces",
+    "max_line_length": 200
+  }
+}
