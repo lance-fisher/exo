@@ -1,0 +1,25 @@
+services:
+  console-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3200:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    volumes:
+      - nextjs-cache:/app/.next/cache
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  nextjs-cache:
