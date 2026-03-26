@@ -14,7 +14,7 @@ const TOTP_LOCKOUT_DURATION_SECONDS = 900; // 15 minute lockout
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
-const AUTH_TAG_LENGTH = 16;
+// Auth tag length is implicitly 16 bytes for AES-256-GCM (Node.js default)
 
 /** Derive the AES-256 key from the hex-encoded config value */
 function getEncryptionKey(): Buffer {

@@ -8,7 +8,7 @@ import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON,
   AuthenticatorTransportFuture,
-} from '@simplewebauthn/server';
+} from '@simplewebauthn/types';
 import { getConfig } from '../config.js';
 import { query } from '../db/connection.js';
 import { getRedis } from '../redis.js';

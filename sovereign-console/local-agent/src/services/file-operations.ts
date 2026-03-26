@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import * as Diff from "diff";
-import { lookup } from "node:dns";
+// dns lookup reserved for future network-scoped validation
 import type { AgentConfig } from "../config.js";
 import type {
   FileContent,
@@ -415,7 +415,7 @@ export class FileOperationsService {
     return projectPath;
   }
 
-  private listEntries(dirPath: string, depth: number): DirectoryEntry[] {
+  private listEntries(dirPath: string, _depth: number): DirectoryEntry[] {
     const entries: DirectoryEntry[] = [];
 
     let dirEntries;

@@ -4,7 +4,7 @@ import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyCookie from '@fastify/cookie';
 import fastifyWebsocket from '@fastify/websocket';
-import { loadConfig, getConfig } from './config.js';
+import { loadConfig } from './config.js';
 import { initDatabase, closeDatabase } from './db/connection.js';
 import { initRedis, closeRedis, getRedis } from './redis.js';
 import { registerSecurityMiddleware, validateReplayProtection } from './middleware/security.js';
@@ -145,7 +145,8 @@ async function main(): Promise<void> {
   });
 
   // --- Error handler ---
-  app.setErrorHandler(async (error, request, reply) => {
+  app.setErrorHandler(async (rawError, request, reply) => {
+    const error = rawError as Error & { statusCode?: number };
     logger.error('Unhandled error', {
       error: error.message,
       stack: error.stack,

@@ -5,7 +5,7 @@
 import { spawn } from "node:child_process";
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { v4 as uuidv4 } from "uuid";
+// uuid import available if needed for future task ID generation
 import { encoding_for_model } from "tiktoken";
 import type { AgentConfig } from "../config.js";
 import type {

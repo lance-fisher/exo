@@ -190,7 +190,7 @@ export class SecretRedactionService {
 
     for (const sp of this.patterns) {
       const regex = new RegExp(sp.pattern.source, sp.pattern.flags);
-      redacted = redacted.replace(regex, (match, ...args) => {
+      redacted = redacted.replace(regex, (match, ..._args) => {
         this.redactionCount++;
         if (sp.replacement) {
           // Use the replacement pattern (supports named groups via $<name>)

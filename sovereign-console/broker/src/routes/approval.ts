@@ -12,7 +12,7 @@ import {
 import { appendLog } from '../audit/index.js';
 import { getConfig } from '../config.js';
 import { logger } from '../logger.js';
-import type { ApprovalActionType } from '../types/index.js';
+// ApprovalActionType used via zod enum validation above
 
 const requestApprovalSchema = z.object({
   action_type: z.enum(['file_write', 'file_delete', 'shell_exec', 'config_change', 'deploy', 'dangerous']),

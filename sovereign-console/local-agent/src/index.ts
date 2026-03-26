@@ -143,8 +143,8 @@ async function handleCommand(command: AgentCommand): Promise<void> {
         break;
 
       default: {
-        const _exhaustive: never = command;
-        sendError(command.requestId, "UNKNOWN_COMMAND", `Unknown command type`);
+        void (command satisfies never);
+        sendError((command as { requestId: string }).requestId, "UNKNOWN_COMMAND", `Unknown command type`);
       }
     }
   } catch (err) {

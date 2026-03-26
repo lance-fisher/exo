@@ -6,7 +6,7 @@ import { sendCommand, onProgress } from '../agent-relay/index.js';
 import { query } from '../db/connection.js';
 import { getConfig } from '../config.js';
 import { logger } from '../logger.js';
-import type { AgentResponse, TaskResult, TokenUsage } from '../types/index.js';
+import type { AgentResponse } from '../types/index.js';
 
 // Rate limiting for usage stats: max 30 requests per minute per IP
 const USAGE_RATE_LIMIT = 30;
