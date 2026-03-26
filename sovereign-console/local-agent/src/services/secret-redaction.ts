@@ -137,6 +137,33 @@ const HIGH_ENTROPY_PATTERN: SecretPattern = {
   pattern: /\b[A-Za-z0-9+/=_\-]{32,}\b/g,
 };
 
+/**
+ * Common secret patterns that should be caught regardless of entropy.
+ * These match structural patterns of known API key and token formats.
+ */
+const ADDITIONAL_SECRET_HEURISTICS: SecretPattern[] = [
+  // Generic API key patterns (prefix + long alphanumeric)
+  {
+    name: "generic-api-key",
+    pattern: /\b(?:api|app|access|auth|client|consumer|service)[-_]?(?:key|token|secret)[-_]?[=: ]["']?([A-Za-z0-9\-._~+/]{20,})["']?/gi,
+  },
+  // Hex-encoded secrets (64 chars = 256-bit key, 128 chars = 512-bit)
+  {
+    name: "hex-encoded-secret",
+    pattern: /\b(?:0x)?[0-9a-fA-F]{64,}\b/g,
+  },
+  // Base64-encoded blocks that are likely keys (44+ chars ending with =)
+  {
+    name: "base64-padded-secret",
+    pattern: /\b[A-Za-z0-9+/]{43,}={1,2}\b/g,
+  },
+  // Private key hex (common in crypto wallets)
+  {
+    name: "private-key-hex",
+    pattern: /\b(?:private[-_]?key\s*[=:]\s*)(?:0x)?[0-9a-fA-F]{64}\b/gi,
+  },
+];
+
 // ── Redaction Service ───────────────────────────────────────────────────────
 
 export class SecretRedactionService {
@@ -147,10 +174,10 @@ export class SecretRedactionService {
 
   constructor(
     additionalPatterns: SecretPattern[] = [],
-    entropyThreshold = 4.5,
-    minEntropyLength = 32,
+    entropyThreshold = 4.0,
+    minEntropyLength = 24,
   ) {
-    this.patterns = [...BUILTIN_PATTERNS, ...additionalPatterns];
+    this.patterns = [...BUILTIN_PATTERNS, ...ADDITIONAL_SECRET_HEURISTICS, ...additionalPatterns];
     this.entropyThreshold = entropyThreshold;
     this.minEntropyLength = minEntropyLength;
   }

@@ -16,6 +16,28 @@ import { logger } from '../logger.js';
 const SESSION_COOKIE_NAME = 'sovereign_session';
 const SESSION_COOKIE_MAX_AGE = 30 * 60; // 30 minutes in seconds
 
+// TOTP rate limiting: max 5 attempts per user per 5-minute window
+const TOTP_MAX_ATTEMPTS = 5;
+const TOTP_WINDOW_MS = 5 * 60 * 1000;
+const totpAttempts = new Map<string, { count: number; windowStart: number }>();
+
+function checkTotpRateLimit(operatorId: string): boolean {
+  const now = Date.now();
+  const entry = totpAttempts.get(operatorId);
+
+  if (!entry || now - entry.windowStart > TOTP_WINDOW_MS) {
+    totpAttempts.set(operatorId, { count: 1, windowStart: now });
+    return true;
+  }
+
+  if (entry.count >= TOTP_MAX_ATTEMPTS) {
+    return false;
+  }
+
+  entry.count++;
+  return true;
+}
+
 const registerOptionsSchema = z.object({
   operator_id: z.string().uuid(),
   device_id: z.string().uuid(),
@@ -195,6 +217,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const auth = request.authContext!;
+
+    if (!checkTotpRateLimit(auth.operator_id)) {
+      logger.warn('TOTP rate limit exceeded', { operator_id: auth.operator_id, ip: request.ip });
+      return reply.code(429).send({ error: 'Too many TOTP attempts. Try again later.' });
+    }
 
     try {
       const valid = await verifyTotpCode(auth.operator_id, body.data.code);

@@ -8,6 +8,28 @@ import { getConfig } from '../config.js';
 import { logger } from '../logger.js';
 import type { AgentResponse, TaskResult, TokenUsage } from '../types/index.js';
 
+// Rate limiting for usage stats: max 30 requests per minute per IP
+const USAGE_RATE_LIMIT = 30;
+const USAGE_RATE_WINDOW_MS = 60 * 1000;
+const usageRateLimits = new Map<string, { count: number; windowStart: number }>();
+
+function checkUsageRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = usageRateLimits.get(ip);
+
+  if (!entry || now - entry.windowStart > USAGE_RATE_WINDOW_MS) {
+    usageRateLimits.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+
+  if (entry.count >= USAGE_RATE_LIMIT) {
+    return false;
+  }
+
+  entry.count++;
+  return true;
+}
+
 const taskSubmitSchema = z.object({
   prompt: z.string().min(1).max(50_000),
   project_path: z.string().min(1),
@@ -290,6 +312,11 @@ export async function taskRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/tasks/usage', {
     preHandler: [requireAuth],
   }, async (request, reply) => {
+    if (!checkUsageRateLimit(request.ip)) {
+      logger.warn('Usage stats rate limit exceeded', { ip: request.ip });
+      return reply.code(429).send({ error: 'Rate limit exceeded. Try again later.' });
+    }
+
     const auth = request.authContext!;
 
     // Session usage

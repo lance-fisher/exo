@@ -101,13 +101,23 @@ export async function validateReplayProtection(
     return;
   }
 
+  // Nonce is not required for initial auth endpoints (login/register)
+  const AUTH_EXEMPT_PREFIXES = ['/api/auth/passkey/login', '/api/auth/passkey/register'];
+  const isAuthExempt = AUTH_EXEMPT_PREFIXES.some((prefix) => request.url.startsWith(prefix));
+
   const nonce = request.headers['x-request-nonce'] as string | undefined;
   if (!nonce) {
-    // Nonce is optional but recommended — log a warning
-    logger.debug('Request without anti-replay nonce', {
+    if (isAuthExempt) {
+      return;
+    }
+    logger.warn('Request rejected: missing required anti-replay nonce', {
       method: request.method,
       url: request.url,
       ip: request.ip,
+    });
+    reply.code(400).send({
+      error: 'Missing required anti-replay nonce',
+      code: 'NONCE_REQUIRED',
     });
     return;
   }
