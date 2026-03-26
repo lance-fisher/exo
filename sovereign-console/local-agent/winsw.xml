@@ -1,0 +1,50 @@
+<!--
+  WinSW Service Configuration — Sovereign Console Local Agent
+  See https://github.com/winsw/winsw for documentation.
+-->
+<service>
+  <!-- Service identity -->
+  <id>SovereignConsoleAgent</id>
+  <name>Sovereign Console Local Agent</name>
+  <description>Sovereign Operator Console local agent. Connects outbound to the broker via mutual TLS WebSocket. Invokes Claude Code for AI-assisted development tasks within scoped project directories.</description>
+
+  <!-- Executable and arguments -->
+  <executable>node</executable>
+  <arguments>dist/index.js</arguments>
+  <workingdirectory>%BASE%</workingdirectory>
+
+  <!-- Startup -->
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+
+  <!-- Service account (dedicated low-privilege account) -->
+  <serviceaccount>
+    <username>.\SovereignAgent</username>
+    <allowservicelogon>true</allowservicelogon>
+  </serviceaccount>
+
+  <!-- Logging -->
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+  <logpath>%BASE%\logs</logpath>
+
+  <!-- Crash recovery: restart on failure -->
+  <onfailure action="restart" delay="10 sec" />
+  <resetfailure>1 hour</resetfailure>
+
+  <!-- Priority -->
+  <priority>Normal</priority>
+
+  <!-- Stop timeout: give the agent time to finish in-flight tasks -->
+  <stoptimeout>30 sec</stoptimeout>
+
+  <!-- Environment variables loaded from .env file path defaults -->
+  <env name="NODE_ENV" value="production" />
+  <env name="NODE_OPTIONS" value="--max-old-space-size=512" />
+
+  <!-- Dependencies: require network to be available -->
+  <depend>Tcpip</depend>
+  <depend>Dnscache</depend>
+</service>
