@@ -2,7 +2,7 @@
 // Sovereign Console Local Agent — Governance Engine
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { createHmac } from "node:crypto";
 import type { AgentConfig } from "../config.js";
@@ -123,6 +123,14 @@ class ApprovalTokenStore {
   private readonly maxAgeMs = 24 * 60 * 60 * 1000;
   private readonly consumedTimestamps = new Map<string, number>();
 
+  /** File path for persisting consumed tokens across restarts */
+  private readonly persistPath: string;
+
+  constructor(persistDir: string) {
+    this.persistPath = path.join(persistDir, "consumed-tokens.json");
+    this.loadFromDisk();
+  }
+
   isConsumed(tokenId: string): boolean {
     return this.consumed.has(tokenId);
   }
@@ -130,15 +138,61 @@ class ApprovalTokenStore {
   markConsumed(tokenId: string): void {
     this.consumed.add(tokenId);
     this.consumedTimestamps.set(tokenId, Date.now());
+    this.saveToDisk();
   }
 
   cleanup(): void {
     const cutoff = Date.now() - this.maxAgeMs;
+    let changed = false;
     for (const [id, ts] of this.consumedTimestamps.entries()) {
       if (ts < cutoff) {
         this.consumed.delete(id);
         this.consumedTimestamps.delete(id);
+        changed = true;
       }
+    }
+    if (changed) {
+      this.saveToDisk();
+    }
+  }
+
+  /** Load consumed token IDs from disk to survive restarts */
+  private loadFromDisk(): void {
+    try {
+      if (!existsSync(this.persistPath)) return;
+      const raw = readFileSync(this.persistPath, "utf-8");
+      const entries = JSON.parse(raw) as Array<{ id: string; ts: number }>;
+      const cutoff = Date.now() - this.maxAgeMs;
+      for (const entry of entries) {
+        if (entry.ts >= cutoff) {
+          this.consumed.add(entry.id);
+          this.consumedTimestamps.set(entry.id, entry.ts);
+        }
+      }
+      logger.info("Loaded consumed tokens from disk", { count: this.consumed.size });
+    } catch (err) {
+      logger.warn("Failed to load consumed tokens from disk, starting fresh", {
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  /** Persist consumed token IDs to disk */
+  private saveToDisk(): void {
+    try {
+      const dir = path.dirname(this.persistPath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      const entries: Array<{ id: string; ts: number }> = [];
+      for (const [id, ts] of this.consumedTimestamps.entries()) {
+        entries.push({ id, ts });
+      }
+      writeFileSync(this.persistPath, JSON.stringify(entries), "utf-8");
+    } catch (err) {
+      logger.error("Failed to persist consumed tokens to disk", {
+        error: (err as Error).message,
+      });
     }
   }
 }
@@ -156,7 +210,11 @@ export class GovernanceEngine {
     this.config = config;
     this.rules = this.loadGovernanceRules(rulesPath);
     this.rateLimiter = new RateLimiter(this.rules.rate_limit_per_minute);
-    this.tokenStore = new ApprovalTokenStore();
+    // Persist consumed tokens alongside governance rules to survive restarts
+    const persistDir = rulesPath
+      ? path.dirname(rulesPath)
+      : path.resolve(import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname));
+    this.tokenStore = new ApprovalTokenStore(persistDir);
 
     // Periodic cleanup every 10 minutes
     this.cleanupTimer = setInterval(() => {
@@ -425,16 +483,22 @@ export class GovernanceEngine {
    * Compute HMAC-SHA256 signature over canonical token fields.
    */
   private computeTokenSignature(token: ApprovalToken): string {
-    const canonical = [
-      token.tokenId,
-      token.action,
-      token.resourcePath,
-      token.sessionId,
-      token.issuedAt,
-      token.expiresAt,
-      token.issuedBy,
-      token.deviceFingerprint,
-    ].join("|");
+    // Deterministic canonical form: sorted keys with explicit String() coercion
+    // to prevent undefined/null producing inconsistent serialization.
+    const fields: Record<string, string> = {
+      action: token.action,
+      deviceFingerprint: token.deviceFingerprint,
+      expiresAt: token.expiresAt,
+      issuedAt: token.issuedAt,
+      issuedBy: token.issuedBy,
+      resourcePath: token.resourcePath,
+      sessionId: token.sessionId,
+      tokenId: token.tokenId,
+    };
+    const sortedKeys = Object.keys(fields).sort();
+    const canonical = sortedKeys
+      .map((k) => `${k}=${String(fields[k] ?? "")}`)
+      .join("|");
 
     return createHmac("sha256", this.config.agentSecret)
       .update(canonical)

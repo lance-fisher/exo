@@ -1,9 +1,12 @@
 import type { FastifyInstance } from 'fastify';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { requireAuth, requireApproval } from '../middleware/auth.js';
 import { appendLog } from '../audit/index.js';
 import { sendCommand } from '../agent-relay/index.js';
 import { consumeApprovalToken } from '../approval/index.js';
+import { getConfig } from '../config.js';
 import { logger } from '../logger.js';
 
 /** Patterns to redact from file content */
@@ -21,9 +24,9 @@ function redactSensitive(content: string): string {
   return redacted;
 }
 
-/** Ensure a path is within allowed project directories */
-function isPathSafe(path: string): boolean {
-  const normalized = path.replace(/\\/g, '/');
+/** Ensure a path is within the allowed project root and not in forbidden directories */
+function isPathSafe(requestedPath: string): boolean {
+  const normalized = requestedPath.replace(/\\/g, '/');
   // Prevent directory traversal
   if (normalized.includes('..')) return false;
   // Must be absolute
@@ -32,6 +35,13 @@ function isPathSafe(path: string): boolean {
   const forbidden = ['/etc/shadow', '/etc/passwd', '/root/.ssh', '/proc', '/sys'];
   for (const dir of forbidden) {
     if (normalized.startsWith(dir)) return false;
+  }
+  // Enforce scope: resolved path must be within PROJECT_ROOT
+  const config = getConfig();
+  const resolvedBase = path.resolve(config.PROJECT_ROOT);
+  const resolvedTarget = path.resolve(requestedPath);
+  if (!resolvedTarget.startsWith(resolvedBase + path.sep) && resolvedTarget !== resolvedBase) {
+    return false;
   }
   return true;
 }
@@ -52,6 +62,9 @@ const diffSchema = z.object({
   path: z.string().min(1),
   agent_id: z.string().uuid(),
 });
+
+/** Default max file size for uploads/downloads: 50 MB */
+const DEFAULT_MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 const writeSchema = z.object({
   path: z.string().min(1),
@@ -100,8 +113,8 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
 
       return reply.send(response.payload);
     } catch (err) {
-      logger.error('File browse failed', { error: (err as Error).message });
-      return reply.code(500).send({ error: (err as Error).message });
+      logger.error('File browse failed', { error: (err as Error).message, stack: (err as Error).stack });
+      return reply.code(500).send({ error: 'File operation failed' });
     }
   });
 
@@ -152,8 +165,8 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
         content: redactedContent,
       });
     } catch (err) {
-      logger.error('File read failed', { error: (err as Error).message });
-      return reply.code(500).send({ error: (err as Error).message });
+      logger.error('File read failed', { error: (err as Error).message, stack: (err as Error).stack });
+      return reply.code(500).send({ error: 'File operation failed' });
     }
   });
 
@@ -189,8 +202,8 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
         diff: redactedDiff,
       });
     } catch (err) {
-      logger.error('File diff failed', { error: (err as Error).message });
-      return reply.code(500).send({ error: (err as Error).message });
+      logger.error('File diff failed', { error: (err as Error).message, stack: (err as Error).stack });
+      return reply.code(500).send({ error: 'File operation failed' });
     }
   });
 
@@ -208,11 +221,22 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(403).send({ error: 'Access denied — path not allowed' });
     }
 
+    // Enforce content size limit
+    const contentSizeBytes = Buffer.byteLength(body.data.content, 'utf-8');
+    if (contentSizeBytes > DEFAULT_MAX_FILE_SIZE_BYTES) {
+      return reply.code(413).send({
+        error: `Content size ${contentSizeBytes} bytes exceeds limit of ${DEFAULT_MAX_FILE_SIZE_BYTES} bytes`,
+      });
+    }
+
     const auth = request.authContext!;
 
     try {
-      // Consume the approval token
-      await consumeApprovalToken(body.data.approval_token_id);
+      // Compute payload hash for the current request and validate against the token
+      const payloadHash = createHash('sha256')
+        .update(JSON.stringify({ path: body.data.path, content: body.data.content }))
+        .digest('hex');
+      await consumeApprovalToken(body.data.approval_token_id, payloadHash, auth.device_id);
 
       const response = await sendCommand(body.data.agent_id, {
         type: 'file_write',
@@ -243,8 +267,8 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
         result: response.payload,
       });
     } catch (err) {
-      logger.error('File write failed', { error: (err as Error).message });
-      return reply.code(500).send({ error: (err as Error).message });
+      logger.error('File write failed', { error: (err as Error).message, stack: (err as Error).stack });
+      return reply.code(500).send({ error: 'File operation failed' });
     }
   });
 
@@ -269,8 +293,8 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
 
       return reply.send(response.payload);
     } catch (err) {
-      logger.error('Project listing failed', { error: (err as Error).message });
-      return reply.code(500).send({ error: (err as Error).message });
+      logger.error('Project listing failed', { error: (err as Error).message, stack: (err as Error).stack });
+      return reply.code(500).send({ error: 'File operation failed' });
     }
   });
 }

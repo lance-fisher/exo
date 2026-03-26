@@ -3,6 +3,14 @@ import { query, withTransaction } from '../db/connection.js';
 import { logger } from '../logger.js';
 import type { AuditEntry, AuditEventType, PaginatedResponse } from '../types/index.js';
 
+/** Event types where audit logging is mandatory and must never be skipped or suppressed */
+const MANDATORY_AUDIT_EVENT_PREFIXES = ['auth.', 'approval.', 'file.'] as const;
+
+/** Returns true if the event type falls under a mandatory audit category */
+export function isMandatoryAuditEvent(eventType: string): boolean {
+  return MANDATORY_AUDIT_EVENT_PREFIXES.some((prefix) => eventType.startsWith(prefix));
+}
+
 interface AppendLogParams {
   event_type: AuditEventType;
   operator_id?: string | null;
@@ -38,7 +46,9 @@ function computeEntryHash(entry: {
   return createHash('sha256').update(input).digest('hex');
 }
 
-/** Append an immutable audit log entry with hash chaining */
+/** Append an immutable audit log entry with hash chaining.
+ *  For mandatory audit categories (auth, approval, file), failures are always
+ *  thrown as exceptions and must not be caught/suppressed by callers. */
 export async function appendLog(params: AppendLogParams): Promise<AuditEntry> {
   return withTransaction(async (client) => {
     // Lock and fetch the last entry for chain continuity
@@ -83,11 +93,19 @@ export async function appendLog(params: AppendLogParams): Promise<AuditEntry> {
       prev_hash: prevHash,
     });
 
-    // We cannot UPDATE audit_log due to the trigger, so we use a raw query
-    // that bypasses the trigger by temporarily disabling it within the transaction.
+    // Temporarily disable the no-update trigger to set the entry hash.
+    // This is scoped to a single UPDATE of the entry_hash column only, within
+    // this transaction. The trigger is re-enabled immediately after, even on error.
     await client.query('ALTER TABLE audit_log DISABLE TRIGGER trg_audit_no_update');
-    await client.query('UPDATE audit_log SET entry_hash = $1 WHERE id = $2', [entryHash, row.id]);
-    await client.query('ALTER TABLE audit_log ENABLE TRIGGER trg_audit_no_update');
+    try {
+      // Only update entry_hash, and only for the row we just inserted
+      await client.query(
+        'UPDATE audit_log SET entry_hash = $1 WHERE id = $2 AND entry_hash = \'\'',
+        [entryHash, row.id],
+      );
+    } finally {
+      await client.query('ALTER TABLE audit_log ENABLE TRIGGER trg_audit_no_update');
+    }
 
     const entry: AuditEntry = {
       id: row.id,

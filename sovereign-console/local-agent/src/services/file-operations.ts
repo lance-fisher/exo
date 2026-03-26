@@ -59,6 +59,14 @@ export class FileOperationsService {
     const projectPath = this.resolveProjectPath(projectName);
     const targetPath = this.resolveAndValidatePath(projectPath, relativePath);
 
+    // Check governance for protected paths (same check used in readFile/writeFile)
+    if (this.governance.isProtectedPath(relativePath)) {
+      throw new FileOperationError(
+        "PROTECTED_PATH",
+        `Access denied: ${relativePath} is a protected path`,
+      );
+    }
+
     const stat = statSync(targetPath);
     if (!stat.isDirectory()) {
       throw new FileOperationError("NOT_DIRECTORY", `${relativePath} is not a directory`);
@@ -324,14 +332,27 @@ export class FileOperationsService {
       );
     }
 
-    // If the path exists, resolve symlinks/junctions and re-check
+    // If the path exists, resolve symlinks/junctions and re-check against
+    // both the projects root and the specific project path to prevent escape
     if (existsSync(target)) {
       try {
         const realPath = realpathSync(target);
-        if (!realPath.startsWith(normalizedProjectRoot)) {
+        const normalizedRealPath = path.resolve(realPath);
+        if (!normalizedRealPath.startsWith(normalizedProjectRoot)) {
           throw new FileOperationError(
             "SYMLINK_ESCAPE",
             "Symlink or junction resolves outside of projects root",
+          );
+        }
+        // Also verify the resolved path is within the specific project directory
+        const normalizedProjectPath = path.resolve(projectPath);
+        if (
+          !normalizedRealPath.startsWith(normalizedProjectPath + path.sep) &&
+          normalizedRealPath !== normalizedProjectPath
+        ) {
+          throw new FileOperationError(
+            "SYMLINK_ESCAPE",
+            "Symlink or junction resolves outside of the project directory",
           );
         }
         return realPath;
@@ -351,16 +372,16 @@ export class FileOperationsService {
    * Normalize Windows-style paths safely.
    */
   normalizeWindowsPath(inputPath: string): string {
+    // Remove any null bytes FIRST to prevent null byte injection before normalization
+    let normalized = inputPath.replace(/\0/g, "");
+
     // Replace backslashes with forward slashes
-    let normalized = inputPath.replace(/\\/g, "/");
+    normalized = normalized.replace(/\\/g, "/");
 
     // Remove leading slash if it looks like a relative path
     if (normalized.startsWith("/") && !normalized.startsWith("//")) {
       normalized = normalized.slice(1);
     }
-
-    // Remove any null bytes (path injection)
-    normalized = normalized.replace(/\0/g, "");
 
     // Collapse multiple slashes
     normalized = normalized.replace(/\/+/g, "/");
@@ -419,6 +440,19 @@ export class FileOperationsService {
         stat = statSync(fullPath);
       } catch {
         continue; // Skip inaccessible entries
+      }
+
+      // If this entry is a symlink, verify the target is within the projects root
+      if (entry.isSymbolicLink()) {
+        try {
+          const realTarget = realpathSync(fullPath);
+          const normalizedRoot = path.resolve(this.config.projectsRoot);
+          if (!realTarget.startsWith(normalizedRoot)) {
+            continue; // Skip symlinks that escape the allowed scope
+          }
+        } catch {
+          continue; // Skip unresolvable symlinks
+        }
       }
 
       const type: DirectoryEntry["type"] = entry.isSymbolicLink()

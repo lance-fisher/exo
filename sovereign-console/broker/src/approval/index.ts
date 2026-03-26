@@ -102,8 +102,41 @@ export async function validateApprovalToken(
   return { valid: true, token };
 }
 
-/** Consume an approval token — mark as used (single-use) */
-export async function consumeApprovalToken(tokenId: string): Promise<void> {
+/** Consume an approval token — mark as used (single-use).
+ *  If payloadHash is provided, it is verified against the token's stored hash
+ *  to prevent replay with a different payload. */
+export async function consumeApprovalToken(tokenId: string, payloadHash?: string, deviceId?: string): Promise<void> {
+  // Fetch the token to validate payload hash and device binding before consuming
+  const tokenResult = await query<ApprovalToken>(
+    'SELECT * FROM approval_tokens WHERE id = $1 AND status = \'approved\'',
+    [tokenId],
+  );
+
+  const token = tokenResult.rows[0];
+  if (!token) {
+    throw new Error('Failed to consume approval token — not in approved state');
+  }
+
+  // Verify payload hash matches the original request to prevent token replay with different payloads
+  if (payloadHash && token.payload_hash && token.payload_hash !== payloadHash) {
+    logger.warn('Approval token payload hash mismatch', {
+      token_id: tokenId,
+      expected_hash: token.payload_hash,
+      actual_hash: payloadHash,
+    });
+    throw new Error('Approval token payload hash does not match — possible replay attempt');
+  }
+
+  // Verify device binding at consume time
+  if (deviceId && token.device_id !== deviceId) {
+    logger.warn('Approval token device mismatch at consume time', {
+      token_id: tokenId,
+      expected_device: token.device_id,
+      actual_device: deviceId,
+    });
+    throw new Error('Approval token device mismatch — token was not issued to this device');
+  }
+
   const result = await query(
     `UPDATE approval_tokens SET status = 'used', used_at = NOW()
      WHERE id = $1 AND status = 'approved'`,
@@ -111,7 +144,7 @@ export async function consumeApprovalToken(tokenId: string): Promise<void> {
   );
 
   if (result.rowCount === 0) {
-    throw new Error('Failed to consume approval token — not in approved state');
+    throw new Error('Failed to consume approval token — concurrent consumption detected');
   }
 
   logger.info('Approval token consumed', { token_id: tokenId });
