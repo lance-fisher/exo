@@ -1,0 +1,43 @@
+{
+  "project": "exo",
+  "ecosystem_root": "D:\\ProjectsHome",
+  "project_path": "D:\\ProjectsHome\\exo",
+  "repository": "https://github.com/lance-fisher/exo.git",
+  "baseline_branch": "claude/baseline-branch-architecture-Up7HI",
+  "main_branch": "main",
+  "platform_support": ["windows", "linux", "macos"],
+  "portability": {
+    "all_paths_relative": true,
+    "no_hardcoded_absolute_paths": true,
+    "cross_platform_scripts": true,
+    "requires": ["python3", "git"]
+  },
+  "governance_files": {
+    "project_entrypoint": "CLAUDE.md",
+    "baseline_system": ".baseline/BASELINE_SYSTEM.md",
+    "branching_policy": ".baseline/BRANCHING_POLICY.md",
+    "risk_tier_model": ".baseline/RISK_TIER_MODEL.md",
+    "inheritance_rules": ".baseline/SYSTEM_INHERITANCE_RULES.md",
+    "inheritance_map": ".baseline/inheritance_map.json",
+    "baseline_manifest": ".baseline/baseline_manifest.json",
+    "branch_creation_guide": ".baseline/BRANCH_CREATION_GUIDE.md",
+    "git_policy": ".baseline/GIT_BRANCHING_POLICY.md",
+    "session_entrypoint": ".baseline/CLAUDE_CODE_ENTRYPOINT.md",
+    "deployment_guide": ".baseline/LOCAL_MACHINE_DEPLOYMENT.md"
+  },
+  "templates": {
+    "branch_identity": ".baseline/templates/BRANCH_IDENTITY_TEMPLATE.md",
+    "branch_manifest": ".baseline/templates/branch_manifest_template.json",
+    "branch_rules": ".baseline/templates/BRANCH_RULES_TEMPLATE.md",
+    "elevated_manifest": ".baseline/elevated/elevated_branch_manifest_template.json"
+  },
+  "scripts": {
+    "create_branch": ".baseline/scripts/create_branch.py"
+  },
+  "ecosystem_integration": {
+    "parent_governance_compatible": true,
+    "self_contained": true,
+    "no_conflicts_with_parent_claude_md": true,
+    "notes": "This project's governance is scoped to the repo directory. A parent D:\\ProjectsHome\\CLAUDE.md can govern the broader ecosystem without conflict."
+  }
+}

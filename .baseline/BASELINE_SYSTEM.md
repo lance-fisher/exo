@@ -3,7 +3,8 @@
 ## Identity
 
 - **Baseline Name:** exo
-- **Baseline Root:** Repository root (`/` of this git repository)
+- **Baseline Root:** Repository root (relative — works at any clone location)
+- **Local Deployment Target:** `D:\ProjectsHome\exo` (within the `D:\ProjectsHome` ecosystem)
 - **Baseline Type:** Protected master baseline
 - **Status:** Active, protected, non-destructive
 
@@ -38,6 +39,10 @@ This repository serves as the **protected master baseline** for the exo project 
 6. Use the branch creation guide or script if creating a new branch
 7. Never modify the master baseline directly without explicit authorization
 
+## Ecosystem Context
+
+This project is designed to operate within `D:\ProjectsHome` as one repository in a broader local ecosystem. The governance framework is self-contained and uses relative paths, so it works on any platform and at any clone location. See `.baseline/LOCAL_MACHINE_DEPLOYMENT.md` for deployment instructions and `.baseline/ecosystem_integration.json` for machine-readable integration data.
+
 ## Governance
 
 See also:
@@ -47,3 +52,5 @@ See also:
 - `.baseline/BRANCH_CREATION_GUIDE.md` - How to create branches
 - `.baseline/GIT_BRANCHING_POLICY.md` - Git-safe operations
 - `.baseline/CLAUDE_CODE_ENTRYPOINT.md` - Future session guidance
+- `.baseline/LOCAL_MACHINE_DEPLOYMENT.md` - Local machine deployment guide
+- `.baseline/ecosystem_integration.json` - Machine-readable ecosystem integration data

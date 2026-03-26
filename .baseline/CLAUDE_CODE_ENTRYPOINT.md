@@ -60,6 +60,10 @@ Is this a new project, bot, experiment, or system?
 - **Linter:** ruff + pylint
 - **Import sorter:** isort (profile=black)
 
+## Local Machine Context
+
+This project is intended to live at `D:\ProjectsHome\exo` as part of a broader local ecosystem. All governance paths are relative to the repo root — no absolute paths are hardcoded. See `.baseline/LOCAL_MACHINE_DEPLOYMENT.md` for deployment details and `.baseline/ecosystem_integration.json` for machine-readable integration data.
+
 ## When in Doubt
 
 - Read the baseline governance files
