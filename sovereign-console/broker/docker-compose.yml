@@ -1,0 +1,120 @@
+version: "3.9"
+
+services:
+  # --- Broker Application ---
+  broker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sovereign-broker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://sovereign:${POSTGRES_PASSWORD:-changeme}@postgres:5432/sovereign_console
+      REDIS_URL: redis://redis:6379/0
+      BROKER_PORT: "3100"
+      BROKER_HOST: "0.0.0.0"
+      JWT_SECRET: ${JWT_SECRET}
+      SESSION_SECRET: ${SESSION_SECRET}
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-ops.lancewfisher.com}
+      WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-Sovereign Console}
+      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-https://ops.lancewfisher.com}
+      AGENT_MTLS_CA_CERT: /certs/agent-ca.pem
+      AGENT_MTLS_CERT: /certs/broker.pem
+      AGENT_MTLS_KEY: /certs/broker-key.pem
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY}
+      APPROVAL_TOKEN_TTL_WRITE: ${APPROVAL_TOKEN_TTL_WRITE:-120}
+      APPROVAL_TOKEN_TTL_DANGEROUS: ${APPROVAL_TOKEN_TTL_DANGEROUS:-60}
+      AGENT_QUEUE_TTL_SECONDS: ${AGENT_QUEUE_TTL_SECONDS:-300}
+      CLAUDE_MAX_TOKENS_PER_TASK: ${CLAUDE_MAX_TOKENS_PER_TASK:-50000}
+      CLAUDE_MAX_TASKS_PER_SESSION: ${CLAUDE_MAX_TASKS_PER_SESSION:-20}
+      CLAUDE_DAILY_SPEND_THRESHOLD: ${CLAUDE_DAILY_SPEND_THRESHOLD:-25.00}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://ops.lancewfisher.com}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - certs:/certs:ro
+    networks:
+      - sovereign-net
+    expose:
+      - "3100"
+
+  # --- PostgreSQL ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: sovereign-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sovereign_console
+      POSTGRES_USER: sovereign
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - sovereign-net
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sovereign -d sovereign_console"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # --- Redis ---
+  redis:
+    image: redis:7-alpine
+    container_name: sovereign-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redisdata:/data
+    networks:
+      - sovereign-net
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- NGINX Reverse Proxy ---
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: sovereign-nginx
+    restart: unless-stopped
+    depends_on:
+      - broker
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - letsencrypt:/etc/letsencrypt:ro
+      - certs:/etc/sovereign/certs:ro
+    networks:
+      - sovereign-net
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+  letsencrypt:
+    driver: local
+  certs:
+    driver: local
+
+networks:
+  sovereign-net:
+    driver: bridge
