@@ -4,6 +4,15 @@
 
 The `main` branch is the protected master baseline. All Git operations must respect this protection.
 
+## Root Governance Protection
+
+This repository operates within the `D:\ProjectsHome` ecosystem. All git operations must respect the root-level governance:
+
+- **Never commit changes that alter, overwrite, or minimize root governance files** at `D:\ProjectsHome`
+- **Never commit personal data, local device paths, credentials, or sensitive information**
+- **Never push content that could expose or compromise the security or privacy** of the local environment
+- Root governance files may only be added to, and only for enhanced security and privacy
+
 ## Safe Git Operations
 
 ### Creating a Branch

@@ -49,10 +49,21 @@ The `main` branch of this repository is the master baseline. Direct pushes to `m
 
 See `.baseline/SYSTEM_INHERITANCE_RULES.md` and `.baseline/inheritance_map.json` for the complete inheritance specification.
 
+## Root Governance Supremacy
+
+The `D:\ProjectsHome` root directory contains established, authoritative governance files. These rules apply to all branches:
+
+- **Root governance files must never be altered, overwritten, minimized, or replaced** by any branch or project-level action
+- **Root governance may only be added to** in ways that enhance security, privacy, and data protection
+- **Root rules take precedence** over project-level and branch-level rules unconditionally
+- **No branch has authority** to modify, override, or contradict root governance
+
 ## Prohibited Actions
 
+- Altering, overwriting, or minimizing root-level governance files at `D:\ProjectsHome`
 - Direct modifications to the master baseline without authorization
 - Embedding elevated-risk systems directly into the baseline
 - Pushing unreviewed changes to `main`
 - Deleting baseline files from within a branch
-- Committing secrets or credentials to any branch
+- Committing secrets, credentials, or personal data to any branch
+- Exposing local device paths, personal information, or sensitive data in commits or logs

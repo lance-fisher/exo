@@ -68,20 +68,29 @@ This repository is designed to function as **one project within a larger `D:\Pro
 
 ## Ecosystem-Level Integration
 
-If `D:\ProjectsHome` has its own governance layer (e.g., a root-level `CLAUDE.md`, `PROJECTS_HOME_GOVERNANCE.md`, or similar), this project's `.baseline/` framework is designed to coexist:
+`D:\ProjectsHome` contains **established, authoritative root-level governance files** (including the root `CLAUDE.md` and other root rules files). This project's `.baseline/` framework is designed to operate **subordinate to** that root governance:
 
-- The repo-level `CLAUDE.md` governs this project specifically
+- The **root-level governance** (`D:\ProjectsHome\CLAUDE.md` + root rules files) is **authoritative and supreme**
+- The repo-level `CLAUDE.md` governs this project specifically, supplementing root governance
 - The repo-level `.baseline/` governs branching within this project
-- A parent-level governance file at `D:\ProjectsHome\CLAUDE.md` (if it exists) governs the broader ecosystem
-- There is no conflict - project-level rules apply within the project directory
+- **Root governance must never be altered, overwritten, minimized, or replaced** — only added to in ways that enhance security, privacy, and data protection
+- If any project-level rule conflicts with root governance, root governance wins unconditionally
+
+### Governance Hierarchy
+
+```
+Root governance (D:\ProjectsHome\CLAUDE.md + root rules files)   ← AUTHORITATIVE, NEVER ALTER
+  └─ Project governance (exo\CLAUDE.md + exo\.baseline\)         ← SUPPLEMENTAL
+       └─ Branch-local governance (BRANCH_RULES.md, etc.)        ← SCOPED TO BRANCH
+```
 
 ## D:\ProjectsHome Directory Layout (Expected)
 
 ```
 D:\ProjectsHome\
-  CLAUDE.md                    # (Optional) Ecosystem-level session guidance
-  PROJECTS_HOME_GOVERNANCE.md  # (Optional) Ecosystem governance
-  exo\                         # This repository
+  CLAUDE.md                    # ROOT GOVERNANCE — authoritative, never alter, only add to
+  [other root rules files]     # ROOT GOVERNANCE — authoritative, never alter, only add to
+  exo\                         # This repository (subordinate to root governance)
     CLAUDE.md                  # Project-level session guidance
     .baseline\                 # Branch architecture framework
     exo\                       # Source code
@@ -116,10 +125,15 @@ python .baseline\scripts\create_branch.py --dry-run --name test --type experimen
 
 When you resume a Claude Code session inside `D:\ProjectsHome\exo`:
 
-1. Claude Code reads `CLAUDE.md` automatically
-2. It will see the baseline architecture instructions
-3. It will know to consult `.baseline/CLAUDE_CODE_ENTRYPOINT.md`
-4. It will follow branch-first governance
-5. All the framework files are in place and self-referencing
+1. Claude Code reads root governance at `D:\ProjectsHome` first (automatic via parent CLAUDE.md)
+2. Claude Code reads project-level `CLAUDE.md` automatically
+3. It will see the governance hierarchy and baseline architecture instructions
+4. It will know to consult `.baseline/CLAUDE_CODE_ENTRYPOINT.md`
+5. It will follow branch-first governance, subordinate to root governance
+6. All the framework files are in place and self-referencing
 
 No additional setup is needed beyond cloning and checking out the branch.
+
+## Critical Reminder
+
+The root-level governance files at `D:\ProjectsHome` are **pre-existing and established**. They are not created by this project. They must never be altered, overwritten, minimized, or replaced by any action taken within this project. They may only ever be added to, and only to enhance security, privacy, and protection of data and personal information including data on the local device.

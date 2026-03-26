@@ -36,8 +36,18 @@
   },
   "ecosystem_integration": {
     "parent_governance_compatible": true,
+    "parent_governance_authoritative": true,
     "self_contained": true,
-    "no_conflicts_with_parent_claude_md": true,
-    "notes": "This project's governance is scoped to the repo directory. A parent D:\\ProjectsHome\\CLAUDE.md can govern the broader ecosystem without conflict."
+    "subordinate_to_root_governance": true,
+    "root_governance_rules": {
+      "never_alter": true,
+      "never_overwrite": true,
+      "never_minimize": true,
+      "never_replace": true,
+      "additive_only": true,
+      "additive_scope": "security, privacy, and protection of data and personal information including local device data",
+      "precedence": "root > project > branch"
+    },
+    "notes": "This project's governance is subordinate to the established root governance at D:\\ProjectsHome. Root governance files are authoritative and must never be altered — only added to for enhanced security and privacy."
   }
 }

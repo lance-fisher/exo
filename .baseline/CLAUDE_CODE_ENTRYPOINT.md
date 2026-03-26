@@ -2,9 +2,10 @@
 
 ## First Steps for Every Session
 
-1. **Read `CLAUDE.md`** at the repository root for project-specific guidance.
-2. **Read this file** to understand the baseline architecture.
-3. **Determine your task scope** - is it a modification to the baseline or derivative work?
+1. **Obey root governance first** — The root-level governance files at `D:\ProjectsHome` (including the root `CLAUDE.md` and all root rules files) are authoritative. Read and follow them before anything below. They must never be altered, overwritten, minimized, or replaced — only ever added to in ways that enhance security, privacy, and data protection.
+2. **Read `CLAUDE.md`** at the repository root for project-specific guidance.
+3. **Read this file** to understand the baseline architecture.
+4. **Determine your task scope** — is it a modification to the baseline or derivative work?
 
 ## Understanding This System
 
@@ -44,13 +45,15 @@ Is this a new project, bot, experiment, or system?
 
 ## Rules for Claude Code Sessions
 
-1. **Never modify baseline governance files** (`.baseline/`) without explicit authorization
-2. **Always work on a branch** - never commit directly to `main`
-3. **Consult the inheritance map** before deciding what files to create or modify
-4. **Determine risk tier** before building any automation, bot, or agent system
-5. **Create branch identity files** when starting a new branch
-6. **Preserve the baseline** - additive changes only, no destructive operations
-7. **Document deviations** - if you override a baseline rule, document it in `LOCAL_OVERRIDES.md`
+1. **Root governance is supreme** — never alter, overwrite, minimize, or replace any root-level governance files at `D:\ProjectsHome`. They may only be added to, and only to enhance security, privacy, and data protection.
+2. **Never modify baseline governance files** (`.baseline/`) without explicit authorization
+3. **Always work on a branch** — never commit directly to `main`
+4. **Consult the inheritance map** before deciding what files to create or modify
+5. **Determine risk tier** before building any automation, bot, or agent system
+6. **Create branch identity files** when starting a new branch
+7. **Preserve the baseline** — additive changes only, no destructive operations
+8. **Document deviations** — if you override a baseline rule, document it in `LOCAL_OVERRIDES.md`
+9. **Protect local data** — never expose, commit, or transmit personal information, credentials, local file paths containing user data, or any sensitive content from the local device
 
 ## Coding Standards (From Baseline)
 
