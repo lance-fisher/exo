@@ -112,11 +112,11 @@ export default function TokenUsageCard({ usage }: TokenUsageCardProps) {
               <div className="mt-2 space-y-1.5">
                 {usage.perTask.map((task) => (
                   <div
-                    key={task.taskId}
+                    key={task.taskId ?? task.id}
                     className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-1.5"
                   >
                     <span className="truncate text-xs text-text-secondary">
-                      {task.description}
+                      {task.description ?? task.model}
                     </span>
                     <span className="ml-2 flex-shrink-0 text-xs font-medium text-text-primary">
                       {task.tokens.toLocaleString()}

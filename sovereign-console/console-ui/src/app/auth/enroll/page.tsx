@@ -49,7 +49,7 @@ export default function EnrollPage() {
     setError(null);
     const { data, error: apiError } = await api.enrollment.verify(enrollmentCode);
     if (apiError || !data?.valid) {
-      setError(apiError?.message || 'Invalid or expired enrollment code.');
+      setError(apiError || 'Invalid or expired enrollment code.');
       setLoading(false);
       return;
     }
@@ -71,12 +71,12 @@ export default function EnrollPage() {
     // Provision TOTP
     const { data: totpData, error: totpError } = await api.auth.provisionTotp();
     if (totpError || !totpData) {
-      setError(totpError?.message || 'Failed to provision TOTP.');
+      setError(totpError || 'Failed to provision TOTP.');
       setLoading(false);
       return;
     }
     setTotpSecret(totpData.secret);
-    setTotpQrUri(totpData.qrUri);
+    setTotpQrUri(totpData.qrUri ?? totpData.otpauthUri);
     setStep('totp');
     setLoading(false);
   }, []);
@@ -103,7 +103,7 @@ export default function EnrollPage() {
       totpSecret,
     });
     if (enrollError) {
-      setError(enrollError.message);
+      setError(enrollError);
       setLoading(false);
       return;
     }

@@ -58,13 +58,15 @@ export interface TokenUsage {
   dailyTotal: number;
   budgetLimit: number;
   budgetRemaining: number;
-  perTask: Array<{ id: string; tokens: number; model: string; timestamp: string }>;
+  perTask: Array<{ id: string; taskId?: string; tokens: number; model: string; timestamp: string; description?: string }>;
 }
 
 export interface Task {
   id: string;
+  task_id?: string;
   type: string;
-  status: 'queued' | 'executing' | 'completed' | 'cancelled' | 'failed';
+  description?: string;
+  status: 'queued' | 'executing' | 'running' | 'completed' | 'cancelled' | 'failed';
   queued_at: string;
   createdAt: string;
   completed_at: string | null;
@@ -128,12 +130,18 @@ export interface ApprovalToken {
   action_type: string;
   resource_path: string;
   operation: string;
+  description?: string;
   status: 'pending' | 'approved' | 'rejected' | 'used' | 'expired';
   issued_at: string;
   expires_at: string;
+  expiresAt?: string;
   approved_at?: string;
   approved_by_device_id?: string;
   nonce?: string;
+  requiresTotp?: boolean;
+  requiresIphone?: boolean;
+  diff?: string;
+  redactedDiff?: string;
 }
 
 type ApiResponse<T> = { data: T; error?: never } | { data?: never; error: string };
@@ -164,12 +172,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<ApiRespo
 export const api = {
   auth: {
     session: () => request<Session>('/api/auth/session'),
-    provisionTotp: () => request<{ secret: string; otpauthUri: string }>('/api/auth/totp/provision', { method: 'POST' }),
+    provisionTotp: () => request<{ secret: string; otpauthUri: string; qrUri?: string }>('/api/auth/totp/provision', { method: 'POST' }),
   },
 
   enrollment: {
     verify: (code: string) => request<{ valid: boolean }>(`/api/enrollment/verify`, { method: 'POST', body: JSON.stringify({ code }) }),
-    complete: (data: { code: string; credential: unknown }) =>
+    complete: (data: Record<string, unknown>) =>
       request<{ device_id: string }>('/api/enrollment/complete', { method: 'POST', body: JSON.stringify(data) }),
   },
 
@@ -198,11 +206,13 @@ export const api = {
   },
 
   audit: {
-    list: (params: { page?: number; per_page?: number; pageSize?: number; event_type?: string }) => {
+    list: (params: Record<string, string | number | undefined>) => {
       const qs = new URLSearchParams();
-      if (params.page) qs.set('page', String(params.page));
-      if (params.per_page || params.pageSize) qs.set('per_page', String(params.per_page ?? params.pageSize));
-      if (params.event_type) qs.set('event_type', params.event_type);
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== '') {
+          qs.set(key === 'pageSize' ? 'per_page' : key === 'eventType' ? 'event_type' : key, String(value));
+        }
+      }
       return request<AuditPage>(`/api/audit?${qs.toString()}`);
     },
     verifyChain: () => request<{ valid: boolean; checked: number; errors: string[] }>('/api/audit/verify'),
@@ -212,8 +222,8 @@ export const api = {
 
   approvals: {
     get: (id: string) => request<ApprovalToken>(`/api/approval/${id}/status`),
-    approve: (id: string, deviceId: string) =>
-      request<ApprovalToken>(`/api/approval/${id}/approve`, { method: 'POST', body: JSON.stringify({ device_id: deviceId }) }),
+    approve: (id: string, totpCodeOrDeviceId?: string) =>
+      request<ApprovalToken>(`/api/approval/${id}/approve`, { method: 'POST', body: JSON.stringify({ totp_code: totpCodeOrDeviceId }) }),
     reject: (id: string, deviceId?: string, reason?: string) =>
       request<void>(`/api/approval/${id}/reject`, { method: 'POST', body: JSON.stringify({ device_id: deviceId, reason }) }),
     pending: () => request<{ pending: ApprovalToken[] }>('/api/approval/pending'),

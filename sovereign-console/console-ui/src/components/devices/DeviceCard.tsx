@@ -22,7 +22,7 @@ interface DeviceCardProps {
   onReenroll: () => void;
 }
 
-const deviceIcons = {
+const deviceIcons: Record<string, typeof Laptop> = {
   laptop: Laptop,
   iphone: Smartphone,
   desktop: Monitor,
@@ -105,7 +105,7 @@ export default function DeviceCard({
               Last seen
             </div>
             <span className="text-text-secondary">
-              {new Date(device.lastSeen).toLocaleString()}
+              {device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Never'}
             </span>
           </div>
         </div>

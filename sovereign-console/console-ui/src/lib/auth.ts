@@ -26,22 +26,30 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 }
 
 /** Start passkey authentication flow */
-export async function startPasskeyAuth(): Promise<{ session_id: string }> {
-  // 1. Get authentication options from broker
-  const { options } = await post<{ options: Parameters<typeof startAuthentication>[0] }>(
-    '/api/auth/passkey/options',
-  );
+export async function startPasskeyAuth(): Promise<{ success?: boolean; session_id?: string; requiresTotp?: boolean; error?: string }> {
+  try {
+    // 1. Get authentication options from broker
+    const { options } = await post<{ options: Parameters<typeof startAuthentication>[0] }>(
+      '/api/auth/passkey/options',
+    );
 
-  // 2. Create credential via browser WebAuthn API
-  const credential = await startAuthentication(options);
+    // 2. Create credential via browser WebAuthn API
+    const credential = await startAuthentication(options);
 
-  // 3. Send credential to broker for verification
-  const result = await post<{ session_id: string }>(
-    '/api/auth/passkey/verify',
-    { credential },
-  );
+    // 3. Send credential to broker for verification
+    const result = await post<{ session_id?: string; requires_totp?: boolean }>(
+      '/api/auth/passkey/verify',
+      { credential },
+    );
 
-  return result;
+    if (result.requires_totp) {
+      return { requiresTotp: true };
+    }
+
+    return { success: true, session_id: result.session_id };
+  } catch (err) {
+    return { error: (err as Error).message };
+  }
 }
 
 /** Start passkey enrollment on a new device */
@@ -64,9 +72,40 @@ export async function startPasskeyEnrollment(enrollmentCode: string): Promise<{ 
   return result;
 }
 
+/** Start passkey registration (returns credential for enrollment) */
+export async function startPasskeyRegistration(): Promise<{ success: boolean; credential?: unknown; error?: string }> {
+  try {
+    const { options } = await post<{ options: Parameters<typeof startRegistration>[0] }>(
+      '/api/enrollment/passkey/options',
+    );
+    const credential = await startRegistration(options);
+    return { success: true, credential };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+/** Complete passkey registration */
+export async function completePasskeyRegistration(credential: unknown): Promise<{ success: boolean; error?: string }> {
+  try {
+    await post<{ device_id: string }>(
+      '/api/enrollment/passkey/complete',
+      { credential },
+    );
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
 /** Verify TOTP code for step-up authentication */
-export async function verifyTotp(code: string): Promise<{ verified: boolean }> {
-  return post<{ verified: boolean }>('/api/auth/totp/verify', { code });
+export async function verifyTotp(code: string): Promise<{ success?: boolean; verified?: boolean; error?: string }> {
+  try {
+    const result = await post<{ verified: boolean }>('/api/auth/totp/verify', { code });
+    return { success: result.verified, verified: result.verified };
+  } catch (err) {
+    return { error: (err as Error).message };
+  }
 }
 
 /** End the current session */

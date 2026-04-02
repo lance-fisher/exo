@@ -27,7 +27,7 @@ const BUILT_IN_RULES: RedactionRule[] = [
   },
   {
     name: 'password_in_url',
-    pattern: /:\/\/([^:]+):([^@]{3,})@/g,
+    pattern: /:\/\/([^:]+):(.{3,}?)@(?=[a-zA-Z0-9\[])/g,
     replacement: '://$1:[REDACTED]@',
   },
   {

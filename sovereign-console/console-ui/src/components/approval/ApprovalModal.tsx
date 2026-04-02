@@ -36,7 +36,7 @@ export default function ApprovalModal({
   useEffect(() => {
     if (!approval) return;
     function update() {
-      const expires = new Date(approval!.expiresAt).getTime();
+      const expires = new Date(approval!.expiresAt ?? approval!.expires_at).getTime();
       const diff = Math.max(0, expires - Date.now());
       const minutes = Math.floor(diff / 60000);
       const seconds = Math.floor((diff % 60000) / 1000);
@@ -56,7 +56,7 @@ export default function ApprovalModal({
         totpCode
       );
       if (apiError) {
-        setError(apiError.message);
+        setError(apiError);
         setActioning(false);
         return;
       }

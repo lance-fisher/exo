@@ -40,6 +40,9 @@ const configSchema = z.object({
   CLAUDE_MAX_TASKS_PER_SESSION: z.coerce.number().int().min(1).default(20),
   CLAUDE_DAILY_SPEND_THRESHOLD: z.coerce.number().min(0).default(25.0),
 
+  // Project Root (filesystem scope boundary for file operations)
+  PROJECT_ROOT: z.string().min(1).default('/home/operator/projects'),
+
   // CORS
   CORS_ORIGIN: z.string().url().default('https://ops.lancewfisher.com'),
 

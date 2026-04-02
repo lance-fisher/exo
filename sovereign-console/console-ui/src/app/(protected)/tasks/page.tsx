@@ -40,11 +40,11 @@ export default function TasksPage() {
     }) => {
       const { data, error } = await api.tasks.create(task);
       if (error) {
-        throw new Error(error.message);
+        throw new Error(error);
       }
       if (data) {
         setActiveTaskId(data.id);
-        setTasks((prev) => [data, ...prev]);
+        setTasks((prev) => [{ ...data, type: task.type, queued_at: new Date().toISOString(), createdAt: new Date().toISOString(), completed_at: null } as Task, ...prev]);
         refreshUsage();
       }
     },
@@ -60,10 +60,10 @@ export default function TasksPage() {
   // Check for approval requirement from stream events
   useEffect(() => {
     const approvalEvent = events.find(
-      (e) => e.type === 'result' && e.data.includes('approval_required:')
+      (e) => e.type === 'result' && typeof e.data.message === 'string' && (e.data.message as string).includes('approval_required:')
     );
-    if (approvalEvent) {
-      const id = approvalEvent.data.split('approval_required:')[1]?.trim();
+    if (approvalEvent && typeof approvalEvent.data.message === 'string') {
+      const id = (approvalEvent.data.message as string).split('approval_required:')[1]?.trim();
       if (id) setApprovalId(id);
     }
   }, [events]);
@@ -126,7 +126,7 @@ export default function TasksPage() {
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-text-primary">
-                        {task.description}
+                        {task.description ?? task.type}
                       </p>
                       <p className="mt-0.5 text-xs text-text-muted">
                         {task.type} &middot;{' '}

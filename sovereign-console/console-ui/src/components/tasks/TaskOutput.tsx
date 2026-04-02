@@ -135,7 +135,7 @@ export default function TaskOutput({
           }
         >
           <pre className="whitespace-pre-wrap font-mono text-sm text-text-secondary">
-            {resultEvent.data}
+            {JSON.stringify(resultEvent.data, null, 2)}
           </pre>
         </Card>
       )}

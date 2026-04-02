@@ -304,9 +304,9 @@ export default function AuditPage() {
             </div>
             <div>
               <p className="text-xs text-text-muted">Details</p>
-              <p className="mt-0.5 text-sm text-text-secondary">
-                {selectedEntry.details}
-              </p>
+              <pre className="mt-0.5 whitespace-pre-wrap text-sm text-text-secondary">
+                {selectedEntry.details ? JSON.stringify(selectedEntry.details, null, 2) : 'None'}
+              </pre>
             </div>
             <div>
               <p className="text-xs text-text-muted">Chain Hash</p>

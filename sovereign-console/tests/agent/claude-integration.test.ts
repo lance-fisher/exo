@@ -261,7 +261,7 @@ describe('Claude Integration — Task Execution', () => {
     // Submit enough tasks to exceed the daily threshold
     // Each task costs roughly: (prompt_tokens * $3/M) + (output_tokens * $15/M)
     // We'll force high spend by submitting many tasks
-    dailySpend = DAILY_SPEND_THRESHOLD_USD - 0.01; // just under threshold
+    dailySpend = DAILY_SPEND_THRESHOLD_USD; // at threshold — any additional cost pushes past
 
     const { alert } = submitTask('sess-high-spend', {
       prompt: 'Some task',

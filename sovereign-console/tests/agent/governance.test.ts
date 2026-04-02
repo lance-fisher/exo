@@ -56,12 +56,15 @@ function normalizePath(inputPath: string): string {
 }
 
 function isWithinProjectScope(filePath: string): { allowed: boolean; reason?: string } {
-  const normalized = normalizePath(filePath);
-
-  // Block path traversal
-  if (normalized.includes('..')) {
+  // Check for path traversal in the raw input (before normalization resolves
+  // the .. segments away). Backslashes are converted first so that both
+  // ../  and ..\  patterns are caught uniformly.
+  const withForwardSlashes = filePath.replace(/\\/g, '/');
+  if (/(?:^|\/)\.\.(?:\/|$)/.test(withForwardSlashes)) {
     return { allowed: false, reason: 'path_traversal_detected' };
   }
+
+  const normalized = normalizePath(filePath);
 
   if (!normalized.startsWith(PROJECTS_ROOT)) {
     return { allowed: false, reason: 'outside_project_scope' };
